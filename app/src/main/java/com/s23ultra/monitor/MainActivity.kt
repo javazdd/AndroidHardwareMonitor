@@ -101,6 +101,20 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    // ── Resume: re-evaluate config + permissions each time we come to foreground
+
+    override fun onResume() {
+        super.onResume()
+        // If the user just came back from SettingsActivity having saved a config for
+        // the first time, request permissions and start the service from here rather
+        // than from SettingsActivity (which doesn't have the permission launcher and
+        // would crash on Android 14 trying to start a location foreground service
+        // without the location permission).
+        if (AppConfig.isConfigured(this)) {
+            checkPermissionsAndStart()
+        }
+    }
+
     // ── Action bar ────────────────────────────────────────────────────────────
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

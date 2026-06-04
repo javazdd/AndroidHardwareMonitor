@@ -1,12 +1,15 @@
 package com.s23ultra.monitor
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import android.Manifest
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -126,38 +129,56 @@ class SettingsActivity : AppCompatActivity() {
     // ── Save ──────────────────────────────────────────────────────────────────
 
     private fun onSave() {
-        val apiKey      = etApiKey.text.toString().trim()
-        val siteHost    = AppConfig.Site.entries[spinnerSite.selectedItemPosition].host
-        val deviceId    = etDeviceId.text.toString().trim()
-        val intervalSec = AppConfig.INTERVAL_OPTIONS[spinnerInterval.selectedItemPosition]
-        val debugOn     = switchDebugLogging.isChecked
+        try {
+            val apiKey      = etApiKey.text.toString().trim()
+            val siteHost    = AppConfig.Site.entries[spinnerSite.selectedItemPosition].host
+            val deviceId    = etDeviceId.text.toString().trim()
+            val intervalSec = AppConfig.INTERVAL_OPTIONS[spinnerInterval.selectedItemPosition]
+            val debugOn     = switchDebugLogging.isChecked
 
-        if (apiKey.isBlank()) {
-            tilApiKey.error = "API key is required"
-            return
+            if (apiKey.isBlank()) {
+                tilApiKey.error = "API key is required"
+                return
+            }
+            tilApiKey.error = null
+
+            AppConfig.save(this, apiKey, siteHost, deviceId, intervalSec)
+            AppConfig.saveCustomTags(this, tagRows.map { (k, v) ->
+                Pair(k.text.toString(), v.text.toString())
+            })
+            AppConfig.saveDebugLogging(this, debugOn)
+
+            DiagLogger.log(
+                ctx     = this,
+                level   = DiagLogger.Level.INFO,
+                message = "Config saved | interval=${intervalSec}s | debug=$debugOn | site=$siteHost",
+            )
+
+            // Only restart the service if location permission is already granted.
+            // On first-ever launch permissions haven't been requested yet — starting a
+            // foreground service with foregroundServiceType="location" without the
+            // permission throws a SecurityException on Android 14. MainActivity.onResume()
+            // will request permissions and start the service once this screen closes.
+            val locationGranted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (locationGranted) {
+                val svc = Intent(this, MonitoringService::class.java)
+                stopService(svc)
+                startForegroundService(svc)
+                Toast.makeText(this, "Saved — monitoring restarted (${intervalSec}s)", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Saved — grant permissions to start monitoring", Toast.LENGTH_SHORT).show()
+            }
+
+            StartupLog.step(this, "onSave complete — locationGranted=$locationGranted")
+            finish()
+        } catch (e: Exception) {
+            val msg = "${e.javaClass.simpleName}: ${e.message?.take(200)}"
+            StartupLog.step(this, "EXCEPTION in onSave: $msg")
+            Toast.makeText(this, "Save error: $msg", Toast.LENGTH_LONG).show()
         }
-        tilApiKey.error = null
-
-        AppConfig.save(this, apiKey, siteHost, deviceId, intervalSec)
-        AppConfig.saveCustomTags(this, tagRows.map { (k, v) ->
-            Pair(k.text.toString(), v.text.toString())
-        })
-        AppConfig.saveDebugLogging(this, debugOn)
-
-        // Log config change before restarting the service so the log entry
-        // goes out under the current (outgoing) config.
-        DiagLogger.log(
-            ctx     = this,
-            level   = DiagLogger.Level.INFO,
-            message = "Config saved | interval=${intervalSec}s | debug=$debugOn | site=$siteHost",
-        )
-
-        val svc = Intent(this, MonitoringService::class.java)
-        stopService(svc)
-        startForegroundService(svc)
-
-        Toast.makeText(this, "Saved — monitoring restarted (${intervalSec}s interval)", Toast.LENGTH_SHORT).show()
-        finish()
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }

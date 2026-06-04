@@ -101,10 +101,12 @@ class SensorCollector(
     }
 
     companion object {
-        private const val FREE_FALL_G_THRESHOLD   = 0.5f   // g — below this = near-weightless
-        private const val FREE_FALL_MIN_MS         = 80L    // ms — minimum freefall window
-        private const val IMPACT_G_THRESHOLD       = 3.0f   // g — spike after freefall
-        private const val HARD_IMPACT_G_THRESHOLD  = 4.5f   // g — direct knock without freefall
-        private const val EVENT_COOLDOWN_MS        = 2_000L // prevent duplicate events
+        // CT47 is MIL-SPEC 810H rated for 1.5 m drops — normal handling regularly
+        // exceeds the S23 Ultra thresholds. Calibrated for warehouse/field use.
+        private const val FREE_FALL_G_THRESHOLD   = 0.3f   // g — tighter free-fall window
+        private const val FREE_FALL_MIN_MS         = 120L   // ms — longer free-fall required
+        private const val IMPACT_G_THRESHOLD       = 5.0f   // g — higher post-freefall threshold
+        private const val HARD_IMPACT_G_THRESHOLD  = 8.0f   // g — hard knock (e.g. drop onto concrete)
+        private const val EVENT_COOLDOWN_MS        = 3_000L // longer cooldown for frequent handling
     }
 }

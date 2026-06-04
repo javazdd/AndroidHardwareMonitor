@@ -201,10 +201,21 @@ class MonitoringService : Service() {
 
     // ── Sensor / hardware reads ───────────────────────────────────────────────
 
-    private fun readCpuTemp(): Double = try {
-        val raw = File("/sys/class/thermal/thermal_zone0/temp").readText().trim().toInt()
-        if (raw > 1_000) raw / 1_000.0 else raw.toDouble()
-    } catch (_: Exception) { -1.0 }
+    /**
+     * CT47 thermal zones differ from Samsung's layout.
+     * Scan all available zones and return the highest valid reading.
+     * Zone names vary by Qualcomm BSP; this approach is device-agnostic.
+     */
+    private fun readCpuTemp(): Double {
+        val thermalRoot = File("/sys/class/thermal")
+        val zones = thermalRoot.listFiles { f -> f.name.startsWith("thermal_zone") } ?: return -1.0
+        return zones.mapNotNull { zone ->
+            try {
+                val raw = File(zone, "temp").readText().trim().toInt()
+                if (raw > 1_000) raw / 1_000.0 else raw.toDouble()
+            } catch (_: Exception) { null }
+        }.maxOrNull() ?: -1.0
+    }
 
     @Suppress("MissingPermission")
     private fun signalStrengthDbm(): Double {

@@ -27,7 +27,7 @@ object AppConfig {
 
     fun deviceTag(ctx: Context): String {
         val id = prefs(ctx).getString(KEY_DEVICE_ID, "")?.trim()
-        return if (id.isNullOrEmpty()) "device:s23_ultra" else "device:$id"
+        return if (id.isNullOrEmpty()) "device:honeywell_ct47" else "device:$id"
     }
 
     fun isConfigured(ctx: Context): Boolean = apiKey(ctx).isNotBlank()

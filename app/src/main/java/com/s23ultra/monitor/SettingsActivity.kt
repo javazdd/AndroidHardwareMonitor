@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
@@ -15,6 +16,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var etApiKey: TextInputEditText
     private lateinit var etDeviceId: EditText
     private lateinit var tvHardwareTags: TextView
+    private lateinit var switchDebugLogging: SwitchMaterial
     private lateinit var btnSave: Button
     private lateinit var btnDiscard: Button
 
@@ -34,14 +36,15 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.title = "Monitoring Configuration"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        spinnerSite     = findViewById(R.id.spinnerSite)
-        spinnerInterval = findViewById(R.id.spinnerInterval)
-        tilApiKey       = findViewById(R.id.tilApiKey)
-        etApiKey        = findViewById(R.id.etApiKey)
-        etDeviceId      = findViewById(R.id.etDeviceId)
-        tvHardwareTags  = findViewById(R.id.tvHardwareTags)
-        btnSave         = findViewById(R.id.btnSave)
-        btnDiscard      = findViewById(R.id.btnDiscard)
+        spinnerSite        = findViewById(R.id.spinnerSite)
+        spinnerInterval    = findViewById(R.id.spinnerInterval)
+        tilApiKey          = findViewById(R.id.tilApiKey)
+        etApiKey           = findViewById(R.id.etApiKey)
+        etDeviceId         = findViewById(R.id.etDeviceId)
+        tvHardwareTags     = findViewById(R.id.tvHardwareTags)
+        switchDebugLogging = findViewById(R.id.switchDebugLogging)
+        btnSave            = findViewById(R.id.btnSave)
+        btnDiscard         = findViewById(R.id.btnDiscard)
 
         setupSiteSpinner()
         setupIntervalSpinner()
@@ -70,9 +73,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupIntervalSpinner() {
         val labels = AppConfig.INTERVAL_OPTIONS.map { sec ->
             when {
-                sec < 60  -> "Every ${sec}s"
+                sec < 60   -> "Every ${sec}s"
                 sec == 60L -> "Every 60s (1 min)"
-                sec < 300 -> "Every ${sec}s (${sec / 60} min)"
+                sec < 300  -> "Every ${sec}s (${sec / 60} min)"
                 else       -> "Every ${sec}s (5 min)"
             }
         }
@@ -81,7 +84,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val saved = AppConfig.pollIntervalSeconds(this)
         spinnerInterval.setSelection(
-            AppConfig.INTERVAL_OPTIONS.indexOf(saved).coerceAtLeast(1) // default index 1 = 30s
+            AppConfig.INTERVAL_OPTIONS.indexOf(saved).coerceAtLeast(1)
         )
     }
 
@@ -102,6 +105,8 @@ class SettingsActivity : AppCompatActivity() {
             keyView.setText(savedPairs[i].first)
             valView.setText(savedPairs[i].second)
         }
+
+        switchDebugLogging.isChecked = AppConfig.isDebugLoggingEnabled(this)
     }
 
     // ── Save ──────────────────────────────────────────────────────────────────
@@ -111,6 +116,7 @@ class SettingsActivity : AppCompatActivity() {
         val siteHost    = AppConfig.Site.entries[spinnerSite.selectedItemPosition].host
         val deviceId    = etDeviceId.text.toString().trim()
         val intervalSec = AppConfig.INTERVAL_OPTIONS[spinnerInterval.selectedItemPosition]
+        val debugOn     = switchDebugLogging.isChecked
 
         if (apiKey.isBlank()) {
             tilApiKey.error = "API key is required"
@@ -122,6 +128,15 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.saveCustomTags(this, tagRows.map { (k, v) ->
             Pair(k.text.toString(), v.text.toString())
         })
+        AppConfig.saveDebugLogging(this, debugOn)
+
+        // Log config change before restarting the service so the log entry
+        // goes out under the current (outgoing) config.
+        DiagLogger.log(
+            ctx     = this,
+            level   = DiagLogger.Level.INFO,
+            message = "Config saved | interval=${intervalSec}s | debug=$debugOn | site=$siteHost",
+        )
 
         val svc = Intent(this, MonitoringService::class.java)
         stopService(svc)

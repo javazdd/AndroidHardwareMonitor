@@ -11,7 +11,6 @@ import android.telephony.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.io.File
-import java.util.concurrent.LinkedBlockingQueue
 
 class MonitoringService : Service() {
 
@@ -26,43 +25,37 @@ class MonitoringService : Service() {
     private var lastRxBytes = TrafficStats.getMobileRxBytes()
     private var lastTxBytes = TrafficStats.getMobileTxBytes()
 
-    // Bounded queue: events from async callbacks (network, sensors, reboot) are queued
-    // here and flushed at the start of each poll cycle. Cap at 50 entries so rapid
-    // accelerometer spikes or connectivity flaps cannot grow memory without bound.
-    private data class QueuedEvent(val title: String, val text: String, val alertType: String)
-    private val eventQueue = LinkedBlockingQueue<QueuedEvent>(MAX_QUEUED_EVENTS)
-
-    private fun queueEvent(title: String, text: String, alertType: String) {
-        // offer() is non-blocking and silently drops the event when the queue is full,
-        // which is the correct behaviour (an overfull queue signals a sensor runaway).
-        eventQueue.offer(QueuedEvent(title, text, alertType))
-    }
-
-    // Single poll coroutine — cancelled and replaced whenever the service is re-started
-    // (e.g. after settings change), preventing duplicate poll loops.
+    // Single poll job — cancelled and replaced on each onStartCommand so a
+    // settings-triggered service restart doesn't accumulate parallel loops.
     private var pollJob: Job? = null
 
-    // ── Network callback ──────────────────────────────────────────────────────
+    // ── Network callback — fires events immediately ────────────────────────────
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             if (!wasOnline) {
                 wasOnline = true
-                queueEvent(
-                    title     = "Connectivity Restored",
-                    text      = "Device is back online.",
-                    alertType = "success",
-                )
+                DiagLogger.log(this@MonitoringService, DiagLogger.Level.INFO, "Connectivity restored")
+                scope.launch {
+                    client.sendEvent(
+                        title     = "Connectivity Restored",
+                        text      = "Device is back online.",
+                        alertType = "success",
+                    )
+                }
             }
         }
         override fun onLost(network: Network) {
             if (wasOnline) {
                 wasOnline = false
-                queueEvent(
-                    title     = "Connectivity Lost",
-                    text      = "Internet connection lost — cellular provider may be down.",
-                    alertType = "error",
-                )
+                DiagLogger.log(this@MonitoringService, DiagLogger.Level.WARN, "Connectivity lost")
+                scope.launch {
+                    client.sendEvent(
+                        title     = "Connectivity Lost",
+                        text      = "Internet connection lost — cellular provider may be down.",
+                        alertType = "error",
+                    )
+                }
             }
         }
     }
@@ -79,36 +72,52 @@ class MonitoringService : Service() {
 
         rebootTracker = RebootTracker(this)
         if (rebootTracker.checkAndRecord()) {
-            queueEvent(
-                title     = "Device Rebooted",
-                text      = "Device came back online after a reboot.",
-                alertType = "info",
-            )
+            DiagLogger.log(this, DiagLogger.Level.INFO, "Reboot detected — service restarted after boot")
+            scope.launch {
+                client.sendEvent(
+                    title     = "Device Rebooted",
+                    text      = "Device came back online after a reboot.",
+                    alertType = "info",
+                )
+            }
         }
 
         sensorCollector = SensorCollector(
             context  = this,
             onImpact = {
-                queueEvent(
-                    title     = "Impact Detected",
-                    text      = "Hard knock detected — sudden g-force spike (>4.5 g).",
-                    alertType = "warning",
-                )
+                DiagLogger.log(this, DiagLogger.Level.WARN, "Impact detected")
+                scope.launch {
+                    client.sendEvent(
+                        title     = "Impact Detected",
+                        text      = "Hard knock detected — sudden g-force spike (>4.5 g).",
+                        alertType = "warning",
+                    )
+                }
             },
-            onFall = {
-                queueEvent(
-                    title     = "Drop / Fall Detected",
-                    text      = "Free-fall phase (>80 ms) followed by impact detected.",
-                    alertType = "error",
-                )
+            onFall   = {
+                DiagLogger.log(this, DiagLogger.Level.WARN, "Fall detected")
+                scope.launch {
+                    client.sendEvent(
+                        title     = "Drop / Fall Detected",
+                        text      = "Free-fall phase (>80 ms) followed by impact detected.",
+                        alertType = "error",
+                    )
+                }
             },
         )
         sensorCollector.start()
+
+        DiagLogger.log(
+            ctx     = this,
+            level   = DiagLogger.Level.INFO,
+            message = "MonitoringService started | " +
+                      "interval=${AppConfig.pollIntervalSeconds(this)}s | " +
+                      "site=${AppConfig.site(this)} | " +
+                      "device=${AppConfig.deviceTag(this)}",
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Cancel any previous poll loop so a settings-triggered restart doesn't
-        // accumulate multiple concurrent loops.
         pollJob?.cancel()
         pollJob = scope.launch {
             while (isActive) {
@@ -122,6 +131,7 @@ class MonitoringService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        DiagLogger.log(this, DiagLogger.Level.INFO, "MonitoringService stopped")
         connectivityManager.unregisterNetworkCallback(networkCallback)
         sensorCollector.stop()
         scope.cancel()
@@ -132,22 +142,14 @@ class MonitoringService : Service() {
     // ── Poll cycle ────────────────────────────────────────────────────────────
 
     private fun poll() {
-        // Top-level guard: any hardware read can throw (bad fd, null service, etc.).
-        // Catching here keeps the coroutine loop alive even if one cycle fails entirely.
         try {
             doPoll()
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            DiagLogger.log(this, DiagLogger.Level.ERROR, "Poll cycle failed", e)
+        }
     }
 
     private fun doPoll() {
-        // 1. Drain the event queue — send everything captured since the last cycle.
-        var event = eventQueue.poll()
-        while (event != null) {
-            client.sendEvent(event.title, event.text, event.alertType)
-            event = eventQueue.poll()
-        }
-
-        // 2. Read all hardware values at this instant.
         val batteryIntent  = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val batteryManager = getSystemService(BatteryManager::class.java)
 
@@ -190,7 +192,6 @@ class MonitoringService : Service() {
         val wifiDbm   = wifiRssiDbm()
         val online    = isOnline()
 
-        // 3. Build and send metric list.
         val metrics = buildList {
             // Battery
             add(DeviceMetric("device.battery.percent",       pct))
@@ -215,7 +216,7 @@ class MonitoringService : Service() {
             if (!wifiDbm.isNaN())   add(DeviceMetric("device.wifi.rssi_dbm",        wifiDbm))
             add(DeviceMetric("device.connectivity.online",   if (online) 1.0 else 0.0))
 
-            // Passive sensors (updated continuously by SensorCollector)
+            // Passive sensors (values updated continuously by SensorCollector)
             with(sensorCollector) {
                 if (!pressureHpa.isNaN()) add(DeviceMetric("device.sensor.pressure_hpa",  pressureHpa.toDouble()))
                 if (!lightLux.isNaN())    add(DeviceMetric("device.sensor.light_lux",     lightLux.toDouble()))
@@ -228,11 +229,10 @@ class MonitoringService : Service() {
 
         val pctStr = if (pct.isNaN()) "?" else "${pct.toInt()}%"
         val sigStr = if (signalDbm.isNaN()) "N/A" else "${signalDbm.toInt()} dBm"
-        val ivlStr = "${AppConfig.pollIntervalSeconds(this)}s"
-        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every $ivlStr")
+        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every ${AppConfig.pollIntervalSeconds(this)}s")
     }
 
-    // ── Sensor / hardware reads ───────────────────────────────────────────────
+    // ── Hardware reads ────────────────────────────────────────────────────────
 
     private fun readCpuTemp(): Double = try {
         val raw = File("/sys/class/thermal/thermal_zone0/temp").readText().trim().toInt()
@@ -241,7 +241,7 @@ class MonitoringService : Service() {
 
     @Suppress("MissingPermission")
     private fun signalStrengthDbm(): Double {
-        val tm = getSystemService(TelephonyManager::class.java)
+        val tm    = getSystemService(TelephonyManager::class.java)
         val cells = try { tm.allCellInfo } catch (_: Exception) { emptyList() }
         for (cell in cells) {
             val dbm = when (cell) {
@@ -258,7 +258,7 @@ class MonitoringService : Service() {
 
     @Suppress("MissingPermission", "DEPRECATION")
     private fun wifiRssiDbm(): Double = try {
-        val wm = applicationContext.getSystemService(WifiManager::class.java)
+        val wm   = applicationContext.getSystemService(WifiManager::class.java)
         val rssi = wm.connectionInfo?.rssi ?: Int.MIN_VALUE
         if (rssi != Int.MIN_VALUE) rssi.toDouble() else Double.NaN
     } catch (_: Exception) { Double.NaN }
@@ -298,8 +298,7 @@ class MonitoringService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID        = "monitor_channel"
-        private const val NOTIFICATION_ID   = 1
-        private const val MAX_QUEUED_EVENTS = 50
+        private const val CHANNEL_ID      = "monitor_channel"
+        private const val NOTIFICATION_ID = 1
     }
 }

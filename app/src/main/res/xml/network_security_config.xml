@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Explicitly deny all cleartext (HTTP) traffic for every domain.
+    All outbound requests go to *.datadoghq.com over HTTPS; plaintext
+    is never acceptable for a payload that carries an API key.
+    On API 28+ cleartext is blocked by default, but being explicit here
+    ensures the restriction is enforced regardless of OS version or any
+    future change to the platform default.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust only the system CA store; no user-added or debug CAs. -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

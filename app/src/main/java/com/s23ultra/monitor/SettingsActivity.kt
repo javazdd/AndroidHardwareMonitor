@@ -32,27 +32,41 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_settings)
-        supportActionBar?.title = "Monitoring Configuration"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        StartupLog.step(this, "SettingsActivity.onCreate start")
+        try {
+            setContentView(R.layout.activity_settings)
+            StartupLog.step(this, "SettingsActivity setContentView OK")
+            supportActionBar?.title = "Monitoring Configuration"
+            supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        spinnerSite        = findViewById(R.id.spinnerSite)
-        spinnerInterval    = findViewById(R.id.spinnerInterval)
-        tilApiKey          = findViewById(R.id.tilApiKey)
-        etApiKey           = findViewById(R.id.etApiKey)
-        etDeviceId         = findViewById(R.id.etDeviceId)
-        tvHardwareTags     = findViewById(R.id.tvHardwareTags)
-        switchDebugLogging = findViewById(R.id.switchDebugLogging)
-        btnSave            = findViewById(R.id.btnSave)
-        btnDiscard         = findViewById(R.id.btnDiscard)
+            spinnerSite        = findViewById(R.id.spinnerSite)
+            spinnerInterval    = findViewById(R.id.spinnerInterval)
+            tilApiKey          = findViewById(R.id.tilApiKey)
+            etApiKey           = findViewById(R.id.etApiKey)
+            etDeviceId         = findViewById(R.id.etDeviceId)
+            tvHardwareTags     = findViewById(R.id.tvHardwareTags)
+            switchDebugLogging = findViewById(R.id.switchDebugLogging)
+            btnSave            = findViewById(R.id.btnSave)
+            btnDiscard         = findViewById(R.id.btnDiscard)
+            StartupLog.step(this, "SettingsActivity views bound OK")
 
-        setupSiteSpinner()
-        setupIntervalSpinner()
-        populateHardwareTags()
-        loadSavedValues()
+            setupSiteSpinner()
+            StartupLog.step(this, "SettingsActivity setupSiteSpinner OK")
+            setupIntervalSpinner()
+            StartupLog.step(this, "SettingsActivity setupIntervalSpinner OK")
+            populateHardwareTags()
+            StartupLog.step(this, "SettingsActivity populateHardwareTags OK")
+            loadSavedValues()
+            StartupLog.step(this, "SettingsActivity loadSavedValues OK")
 
-        btnSave.setOnClickListener { onSave() }
-        btnDiscard.setOnClickListener { finish() }
+            btnSave.setOnClickListener { onSave() }
+            btnDiscard.setOnClickListener { finish() }
+            StartupLog.step(this, "SettingsActivity.onCreate complete")
+        } catch (e: Exception) {
+            val msg = "${e.javaClass.simpleName}: ${e.message?.take(300)}"
+            StartupLog.step(this, "EXCEPTION in SettingsActivity.onCreate: $msg")
+            Toast.makeText(this, "Settings error: $msg", Toast.LENGTH_LONG).show()
+        }
     }
 
     // ── Site spinner ──────────────────────────────────────────────────────────

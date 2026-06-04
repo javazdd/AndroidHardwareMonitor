@@ -1,27 +1,16 @@
 package com.s23ultra.monitor
 
 import android.app.Application
-import java.io.File
 
-/**
- * Custom Application class.
- *
- * Installs a global UncaughtExceptionHandler on every process start.
- * When the JVM has an unhandled exception (crash), the handler writes a
- * compact crash report to internal storage before handing off to the
- * platform default handler (which shows the "App has stopped" dialog).
- *
- * On the next successful launch, the report is read, sent to the backend
- * as a crash-level log, and deleted. Because the send requires a configured
- * API key, the report is held on disk until the app is provisioned — it will
- * not accumulate; at most one file exists at a time (the latest crash).
- */
 class MonitorApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        StartupLog.step(this, "MonitorApp.onCreate start")
         installCrashHandler()
+        StartupLog.step(this, "CrashHandler installed")
         sendPendingCrashReport()
+        StartupLog.step(this, "MonitorApp.onCreate complete")
     }
 
     // ── Crash capture ─────────────────────────────────────────────────────────
@@ -31,12 +20,11 @@ class MonitorApp : Application() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 val report = buildReport(thread, throwable)
-                File(filesDir, CRASH_FILE).writeText(report)
-            } catch (_: Throwable) {
-                // Never let the crash handler itself crash — silently skip file write.
-            }
-            // Always invoke the platform handler so Android can show its dialog
-            // and record the crash in the system log.
+                // Write to external files dir so the user can read it with My Files
+                // without needing ADB. Path: Android/data/com.s23ultra.monitor/files/last_crash.txt
+                StartupLog.writeCrash(this, report)
+                StartupLog.step(this, "CRASH captured: ${throwable.javaClass.simpleName}: ${throwable.message?.take(120)}")
+            } catch (_: Throwable) {}
             platform?.uncaughtException(thread, throwable)
         }
     }
@@ -47,39 +35,26 @@ class MonitorApp : Application() {
         val msg = t.message?.take(500)
         if (!msg.isNullOrBlank()) append("message=$msg\n")
         append("stack=\n")
-        // First 20 frames are usually enough to pinpoint the cause.
         t.stackTrace.take(20).forEach { frame -> append("  at $frame\n") }
         val cause = t.cause
         if (cause != null) {
             append("caused_by=${cause.javaClass.name}: ${cause.message?.take(300)}\n")
+            cause.stackTrace.take(10).forEach { frame -> append("  at $frame\n") }
         }
     }
 
     // ── Crash replay ──────────────────────────────────────────────────────────
 
     private fun sendPendingCrashReport() {
-        if (!AppConfig.isConfigured(this)) return   // can't send without an API key
+        // UI display of the crash is handled by MainActivity (shows an AlertDialog).
+        // Here we only handle sending to Datadog once the API key is configured.
+        if (!AppConfig.isConfigured(this)) return
 
-        val file = File(filesDir, CRASH_FILE)
-        if (!file.exists()) return
-
-        val report = try {
-            file.readText().take(3_000)
-        } catch (_: Exception) {
-            file.delete()
-            return
-        }
-
-        // Delete before sending — we never want to re-send a stale crash on
-        // every subsequent launch if the network send happens to fail.
-        file.delete()
+        val report = StartupLog.readCrash(this) ?: return
+        StartupLog.deleteCrash(this)
 
         if (report.isNotBlank()) {
             DiagLogger.logCrash(this, "Crash report from previous session:\n$report")
         }
-    }
-
-    companion object {
-        private const val CRASH_FILE = "last_crash.txt"
     }
 }

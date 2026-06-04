@@ -12,6 +12,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -40,24 +41,64 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        StartupLog.step(this, "MainActivity.onCreate start")
 
-        tvBatteryPct   = findViewById(R.id.tvBatteryPct)
-        tvBatteryTemp  = findViewById(R.id.tvBatteryTemp)
-        tvCpuTemp      = findViewById(R.id.tvCpuTemp)
-        tvSignal       = findViewById(R.id.tvSignal)
-        tvConnectivity = findViewById(R.id.tvConnectivity)
-        tvRam          = findViewById(R.id.tvRam)
-        tvStorage      = findViewById(R.id.tvStorage)
-        tvStatus       = findViewById(R.id.tvStatus)
+        // ── Show crash dialog from previous run before doing anything else ────
+        showCrashDialogIfPending()
 
-        // Prompt for config if not yet set up
-        if (!AppConfig.isConfigured(this)) {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        } else {
-            checkPermissionsAndStart()
+        try {
+            setContentView(R.layout.activity_main)
+            StartupLog.step(this, "setContentView OK")
+
+            tvBatteryPct   = findViewById(R.id.tvBatteryPct)
+            tvBatteryTemp  = findViewById(R.id.tvBatteryTemp)
+            tvCpuTemp      = findViewById(R.id.tvCpuTemp)
+            tvSignal       = findViewById(R.id.tvSignal)
+            tvConnectivity = findViewById(R.id.tvConnectivity)
+            tvRam          = findViewById(R.id.tvRam)
+            tvStorage      = findViewById(R.id.tvStorage)
+            tvStatus       = findViewById(R.id.tvStatus)
+            StartupLog.step(this, "Views bound OK")
+
+            if (!AppConfig.isConfigured(this)) {
+                StartupLog.step(this, "Not configured — opening SettingsActivity")
+                startActivity(Intent(this, SettingsActivity::class.java))
+            } else {
+                StartupLog.step(this, "Configured — requesting permissions")
+                checkPermissionsAndStart()
+            }
+
+            startPollingUI()
+            StartupLog.step(this, "MainActivity.onCreate complete")
+
+        } catch (e: Exception) {
+            StartupLog.step(this, "EXCEPTION in MainActivity.onCreate: ${e.javaClass.simpleName}: ${e.message?.take(200)}")
+            // Show the error directly on the status text if views were bound, otherwise
+            // fall through to the UncaughtExceptionHandler which will write the crash file.
+            try {
+                tvStatus.text = "Startup error — see startup.log\n${e.javaClass.simpleName}: ${e.message?.take(120)}"
+            } catch (_: Exception) {}
         }
-        startPollingUI()
+    }
+
+    // ── Crash dialog ──────────────────────────────────────────────────────────
+
+    private fun showCrashDialogIfPending() {
+        val crash = StartupLog.readCrash(this) ?: return
+        StartupLog.step(this, "Showing crash dialog from previous session")
+        // Don't delete yet — MonitorApp.sendPendingCrashReport() will send + delete
+        // once an API key is configured. Here we just display it.
+        AlertDialog.Builder(this)
+            .setTitle("Crash detected (previous session)")
+            .setMessage(crash.take(1_200))
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Copy path") { _, _ ->
+                val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(
+                    android.content.ClipData.newPlainText("log path", StartupLog.logPath(this))
+                )
+            }
+            .show()
     }
 
     // ── Action bar ────────────────────────────────────────────────────────────
@@ -103,7 +144,7 @@ class MainActivity : AppCompatActivity() {
     private fun startPollingUI() {
         lifecycleScope.launch {
             while (true) {
-                try { refreshUI() } catch (_: Exception) { /* never let a read failure crash the activity */ }
+                try { refreshUI() } catch (_: Exception) {}
                 delay(5_000L)
             }
         }

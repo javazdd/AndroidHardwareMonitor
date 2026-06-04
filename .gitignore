@@ -1,0 +1,25 @@
+# Build outputs
+/build/
+app/build/
+*.apk
+*.aab
+*.ap_
+
+# Gradle
+.gradle/
+local.properties
+gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Secrets — never commit keys
+# AppConfig reads all credentials from SharedPreferences at runtime
+app/src/main/java/com/s23ultra/monitor/secrets.kt
+
+# Android generated
+app/src/main/gen/

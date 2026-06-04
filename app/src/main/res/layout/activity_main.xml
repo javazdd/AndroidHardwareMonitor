@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAFAFA">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#1A1A2E"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sending metrics to Datadog every 30 s"
+            android:textSize="13sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Battery card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BATTERY"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="8dp" />
+                <TextView
+                    android:id="@+id/tvBatteryPct"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Battery: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/tvBatteryTemp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Battery Temp: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- CPU card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TEMPERATURE"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="8dp" />
+                <TextView
+                    android:id="@+id/tvCpuTemp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="CPU Temp: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Signal card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SIGNAL"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="8dp" />
+                <TextView
+                    android:id="@+id/tvSignal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Signal: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- System card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SYSTEM"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="8dp" />
+                <TextView
+                    android:id="@+id/tvRam"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="RAM: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/tvStorage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Storage: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Connectivity card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CONNECTIVITY"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="8dp" />
+                <TextView
+                    android:id="@+id/tvConnectivity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Connectivity: —"
+                    android:textSize="18sp"
+                    android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Status footer -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Initializing…"
+            android:textSize="13sp"
+            android:textColor="#888888"
+            android:gravity="center" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAFAFA">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Section: Datadog site -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DATADOG SITE"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="4dp">
+                <Spinner
+                    android:id="@+id/spinnerSite"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Section: API key -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API KEY"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <EditText
+                android:id="@+id/etApiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:hint="Paste your Datadog API key here"
+                android:textSize="14sp"
+                android:inputType="textNoSuggestions"
+                android:background="@null"
+                android:fontFamily="monospace" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Find yours at app.datadoghq.com → Organization Settings → API Keys"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Section: Device ID -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DEVICE ID  (used as the device: tag in Datadog)"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <EditText
+                android:id="@+id/etDeviceId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:hint="e.g. samsung_s23_ultra"
+                android:textSize="16sp"
+                android:inputType="textNoSuggestions"
+                android:background="@null" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Metrics will appear as device:{id} in Datadog"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="40dp" />
+
+        <!-- Buttons -->
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Save &amp; Restart Monitoring"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnDiscard"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Discard"
+            android:textSize="15sp"
+            style="?attr/borderlessButtonStyle"
+            android:textColor="#888888" />
+
+    </LinearLayout>
+</ScrollView>

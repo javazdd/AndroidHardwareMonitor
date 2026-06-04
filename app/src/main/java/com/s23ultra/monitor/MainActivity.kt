@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
     private fun startPollingUI() {
         lifecycleScope.launch {
             while (true) {
-                refreshUI()
+                try { refreshUI() } catch (_: Exception) { /* never let a read failure crash the activity */ }
                 delay(5_000L)
             }
         }

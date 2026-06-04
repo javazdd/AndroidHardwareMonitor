@@ -56,9 +56,21 @@ object DiagLogger {
         error: Throwable? = null,
     ) {
         if (!AppConfig.isDebugLoggingEnabled(ctx)) return
-        // Capture applicationContext so the executor doesn't hold an Activity/Service ref.
         val appCtx = ctx.applicationContext
         executor.execute { send(appCtx, level, message, error) }
+    }
+
+    /**
+     * Send a crash report regardless of the debug-logging toggle.
+     * Only requires a configured API key — crash reports are always worth
+     * sending when the backend is reachable.
+     * Called by MonitorApp after reading a crash file written by the
+     * UncaughtExceptionHandler on the previous run.
+     */
+    fun logCrash(ctx: Context, report: String) {
+        if (AppConfig.apiKey(ctx).isBlank()) return
+        val appCtx = ctx.applicationContext
+        executor.execute { send(appCtx, Level.ERROR, report, null) }
     }
 
     // ── Internal send ─────────────────────────────────────────────────────────

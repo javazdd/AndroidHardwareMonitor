@@ -15,9 +15,19 @@ android {
         versionName "1.9"
     }
 
+    signingConfigs {
+        release {
+            storeFile     file("${System.getProperty('user.home')}/S23UltraMonitor/keystore/release.jks")
+            storePassword 'monitor2026'
+            keyAlias      'monitor'
+            keyPassword   'monitor2026'
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

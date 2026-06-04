@@ -11,6 +11,7 @@ import android.telephony.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
 
 class MonitoringService : Service() {
 
@@ -25,32 +26,45 @@ class MonitoringService : Service() {
     private var lastRxBytes = TrafficStats.getMobileRxBytes()
     private var lastTxBytes = TrafficStats.getMobileTxBytes()
 
+    // Events queued from async callbacks; drained at the start of every poll cycle.
+    // ConcurrentLinkedQueue is safe to offer() from any thread and poll() from the IO coroutine.
+    private data class QueuedEvent(val title: String, val text: String, val alertType: String)
+    private val eventQueue = ConcurrentLinkedQueue<QueuedEvent>()
+
+    private fun queueEvent(title: String, text: String, alertType: String) {
+        eventQueue.offer(QueuedEvent(title, text, alertType))
+    }
+
+    // Single poll coroutine — cancelled and replaced whenever the service is re-started
+    // (e.g. after settings change), preventing duplicate poll loops.
+    private var pollJob: Job? = null
+
+    // ── Network callback ──────────────────────────────────────────────────────
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             if (!wasOnline) {
                 wasOnline = true
-                scope.launch {
-                    client.sendEvent(
-                        title = "Connectivity Restored",
-                        text = "Device is back online.",
-                        alertType = "success",
-                    )
-                }
+                queueEvent(
+                    title     = "Connectivity Restored",
+                    text      = "Device is back online.",
+                    alertType = "success",
+                )
             }
         }
         override fun onLost(network: Network) {
             if (wasOnline) {
                 wasOnline = false
-                scope.launch {
-                    client.sendEvent(
-                        title = "Connectivity Lost",
-                        text = "Internet connection lost — cellular provider may be down.",
-                        alertType = "error",
-                    )
-                }
+                queueEvent(
+                    title     = "Connectivity Lost",
+                    text      = "Internet connection lost — cellular provider may be down.",
+                    alertType = "error",
+                )
             }
         }
     }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -62,44 +76,42 @@ class MonitoringService : Service() {
 
         rebootTracker = RebootTracker(this)
         if (rebootTracker.checkAndRecord()) {
-            scope.launch {
-                client.sendEvent(
-                    title = "Device Rebooted",
-                    text = "S23 Ultra came back online after a reboot.",
-                    alertType = "info",
-                )
-            }
+            queueEvent(
+                title     = "Device Rebooted",
+                text      = "Device came back online after a reboot.",
+                alertType = "info",
+            )
         }
 
         sensorCollector = SensorCollector(
-            context = this,
+            context  = this,
             onImpact = {
-                scope.launch {
-                    client.sendEvent(
-                        title = "Impact Detected",
-                        text = "Hard knock detected — sudden g-force spike (>4.5g).",
-                        alertType = "warning",
-                    )
-                }
+                queueEvent(
+                    title     = "Impact Detected",
+                    text      = "Hard knock detected — sudden g-force spike (>4.5 g).",
+                    alertType = "warning",
+                )
             },
             onFall = {
-                scope.launch {
-                    client.sendEvent(
-                        title = "Drop / Fall Detected",
-                        text = "Free-fall phase (>80ms) followed by impact detected.",
-                        alertType = "error",
-                    )
-                }
+                queueEvent(
+                    title     = "Drop / Fall Detected",
+                    text      = "Free-fall phase (>80 ms) followed by impact detected.",
+                    alertType = "error",
+                )
             },
         )
         sensorCollector.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        scope.launch {
+        // Cancel any previous poll loop so a settings-triggered restart doesn't
+        // accumulate multiple concurrent loops.
+        pollJob?.cancel()
+        pollJob = scope.launch {
             while (isActive) {
+                val intervalMs = AppConfig.pollIntervalSeconds(this@MonitoringService) * 1_000L
                 poll()
-                delay(POLL_INTERVAL_MS)
+                delay(intervalMs)
             }
         }
         return START_STICKY
@@ -114,13 +126,21 @@ class MonitoringService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ── Poll loop ─────────────────────────────────────────────────────────────
+    // ── Poll cycle ────────────────────────────────────────────────────────────
 
     private fun poll() {
-        val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        // 1. Drain the event queue — send everything that was captured since the last cycle.
+        var event = eventQueue.poll()
+        while (event != null) {
+            client.sendEvent(event.title, event.text, event.alertType)
+            event = eventQueue.poll()
+        }
+
+        // 2. Read all hardware values at this instant.
+        val batteryIntent  = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val batteryManager = getSystemService(BatteryManager::class.java)
 
-        // ── Battery ──────────────────────────────────────────────────────────
+        // Battery
         val level     = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale     = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
         val pct       = if (level >= 0) level * 100.0 / scale else Double.NaN
@@ -132,11 +152,11 @@ class MonitoringService : Service() {
         val currentUa = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).toDouble()
         val capUah    = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).toDouble()
 
-        // ── System ───────────────────────────────────────────────────────────
+        // System
         val memInfo = ActivityManager.MemoryInfo()
         (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memInfo)
-        val ramAvailMb  = memInfo.availMem / 1_048_576.0
-        val ramTotalMb  = memInfo.totalMem / 1_048_576.0
+        val ramAvailMb    = memInfo.availMem / 1_048_576.0
+        val ramTotalMb    = memInfo.totalMem / 1_048_576.0
         val storageFreeGb = StatFs(Environment.getDataDirectory().path).run {
             availableBlocksLong * blockSizeLong / 1_073_741_824.0
         }
@@ -145,9 +165,9 @@ class MonitoringService : Service() {
         val uptimeSec = rebootTracker.uptimeSeconds().toDouble()
         val cpuTempC  = readCpuTemp()
 
-        // ── Network ──────────────────────────────────────────────────────────
-        val curRx = TrafficStats.getMobileRxBytes()
-        val curTx = TrafficStats.getMobileTxBytes()
+        // Network
+        val curRx   = TrafficStats.getMobileRxBytes()
+        val curTx   = TrafficStats.getMobileTxBytes()
         val rxDelta = if (lastRxBytes >= 0 && curRx >= lastRxBytes) (curRx - lastRxBytes).toDouble() else Double.NaN
         val txDelta = if (lastTxBytes >= 0 && curTx >= lastTxBytes) (curTx - lastTxBytes).toDouble() else Double.NaN
         lastRxBytes = curRx
@@ -157,13 +177,12 @@ class MonitoringService : Service() {
         val wifiDbm   = wifiRssiDbm()
         val online    = isOnline()
 
-        // ── Build metric list ─────────────────────────────────────────────────
+        // 3. Build and send metric list.
         val metrics = buildList {
             // Battery
             add(DeviceMetric("device.battery.percent",       pct))
             add(DeviceMetric("device.battery.charging",      if (charging) 1.0 else 0.0))
             add(DeviceMetric("device.battery.voltage_mv",    voltageMv))
-            // currentUa = Long.MIN_VALUE when not supported; filter it
             if (currentUa > Long.MIN_VALUE.toDouble() + 1) add(DeviceMetric("device.battery.current_ua", currentUa))
             if (capUah > 0) add(DeviceMetric("device.battery.capacity_uah", capUah))
             add(DeviceMetric("device.temperature.battery",  tempC))
@@ -183,7 +202,7 @@ class MonitoringService : Service() {
             if (!wifiDbm.isNaN())   add(DeviceMetric("device.wifi.rssi_dbm",        wifiDbm))
             add(DeviceMetric("device.connectivity.online",   if (online) 1.0 else 0.0))
 
-            // Sensors
+            // Passive sensors (updated continuously by SensorCollector)
             with(sensorCollector) {
                 if (!pressureHpa.isNaN()) add(DeviceMetric("device.sensor.pressure_hpa",  pressureHpa.toDouble()))
                 if (!lightLux.isNaN())    add(DeviceMetric("device.sensor.light_lux",     lightLux.toDouble()))
@@ -196,7 +215,8 @@ class MonitoringService : Service() {
 
         val pctStr = if (pct.isNaN()) "?" else "${pct.toInt()}%"
         val sigStr = if (signalDbm.isNaN()) "N/A" else "${signalDbm.toInt()} dBm"
-        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr")
+        val ivlStr = "${AppConfig.pollIntervalSeconds(this)}s"
+        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every ${ivlStr}")
     }
 
     // ── Sensor / hardware reads ───────────────────────────────────────────────
@@ -244,7 +264,7 @@ class MonitoringService : Service() {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("S23 Ultra Monitor")
+            .setContentTitle("Hardware Monitor")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(pi)
@@ -265,8 +285,7 @@ class MonitoringService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID       = "monitor_channel"
-        private const val NOTIFICATION_ID  = 1
-        private const val POLL_INTERVAL_MS = 30_000L
+        private const val CHANNEL_ID      = "monitor_channel"
+        private const val NOTIFICATION_ID = 1
     }
 }

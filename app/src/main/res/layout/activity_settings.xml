@@ -42,6 +42,45 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- ── EMISSION INTERVAL ──────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EMISSION INTERVAL"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="4dp">
+                <Spinner
+                    android:id="@+id/spinnerInterval"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="How often metrics are read and sent. Events are queued and flushed at each window."
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="24dp" />
+
         <!-- ── BACKEND API KEY ─────────────────────────────────────────────── -->
         <TextView
             android:layout_width="match_parent"

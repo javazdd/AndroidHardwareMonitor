@@ -29,11 +29,14 @@ class DatadogClient(private val context: Context) {
      */
     fun sendMetrics(metrics: List<DeviceMetric>) {
         val apiKey = AppConfig.apiKey(context)
-        val tag    = AppConfig.deviceTag(context)
         if (apiKey.isBlank()) return
 
         val series = JSONArray()
         val nowSeconds = System.currentTimeMillis() / 1000L
+
+        val tags = JSONArray().also { arr ->
+            AppConfig.allTags(context).forEach { arr.put(it) }
+        }
 
         metrics.filter { !it.value.isNaN() }.forEach { m ->
             series.put(JSONObject().apply {
@@ -43,7 +46,7 @@ class DatadogClient(private val context: Context) {
                     put("timestamp", nowSeconds)
                     put("value", m.value)
                 }))
-                put("tags", JSONArray().put(tag))
+                put("tags", tags)
             })
         }
 
@@ -63,7 +66,9 @@ class DatadogClient(private val context: Context) {
             put("title", title)
             put("text", text)
             put("alert_type", alertType)
-            put("tags", JSONArray().put(AppConfig.deviceTag(context)))
+            put("tags", JSONArray().also { arr ->
+                AppConfig.allTags(context).forEach { arr.put(it) }
+            })
         }.toString()
         post(apiKey, "https://api.${AppConfig.site(context)}/api/v1/events", body)
     }

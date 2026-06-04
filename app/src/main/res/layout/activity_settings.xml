@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA">
+    android:background="#F5F5F5">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="20dp">
 
-        <!-- Section: backend site -->
+        <!-- ── BACKEND SITE ─────────────────────────────────────────────────── -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="BACKEND SITE"
             android:textSize="11sp"
             android:letterSpacing="0.1"
-            android:textColor="#999999"
-            android:layout_marginBottom="8dp" />
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
 
         <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
@@ -42,35 +42,39 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Section: API key -->
+        <!-- ── BACKEND API KEY ─────────────────────────────────────────────── -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="BACKEND API KEY"
             android:textSize="11sp"
             android:letterSpacing="0.1"
-            android:textColor="#999999"
-            android:layout_marginBottom="8dp" />
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
 
-        <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
+        <!-- TextInputLayout provides the built-in show/hide eye toggle -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="#FFFFFF">
-            <EditText
+            android:layout_marginBottom="6dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:endIconMode="password_toggle"
+            app:endIconContentDescription="Toggle API key visibility"
+            app:boxCornerRadiusTopStart="12dp"
+            app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp"
+            app:boxCornerRadiusBottomEnd="12dp">
+
+            <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
                 android:hint="Paste your backend API key here"
-                android:textSize="14sp"
-                android:inputType="textNoSuggestions"
-                android:background="@null"
-                android:fontFamily="monospace" />
-        </androidx.cardview.widget.CardView>
+                android:inputType="textPassword"
+                android:fontFamily="monospace"
+                android:textSize="14sp" />
+        </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
             android:layout_width="match_parent"
@@ -80,21 +84,20 @@
             android:textColor="#999999"
             android:layout_marginBottom="24dp" />
 
-        <!-- Section: Device ID -->
+        <!-- ── DEVICE ID ────────────────────────────────────────────────────── -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DEVICE ID  (used as the device: tag)"
+            android:text="DEVICE ID"
             android:textSize="11sp"
             android:letterSpacing="0.1"
-            android:textColor="#999999"
-            android:layout_marginBottom="8dp" />
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
 
         <androidx.cardview.widget.CardView
-            xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="6dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
             app:cardBackgroundColor="#FFFFFF">
@@ -112,12 +115,193 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Metrics will be tagged as device:{id}"
+            android:text="Sent as device:{id} on every metric and event"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="24dp" />
+
+        <!-- ── HARDWARE TAGS (auto-detected) ──────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="HARDWARE TAGS"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#888888"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto-detected from device — always included"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="6dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <TextView
+                android:id="@+id/tvHardwareTags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:textSize="13sp"
+                android:fontFamily="monospace"
+                android:textColor="#444444"
+                android:lineSpacingMultiplier="1.5" />
+        </androidx.cardview.widget.CardView>
+
+        <!-- ── CUSTOM TAGS ─────────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CUSTOM TAGS"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#888888"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Up to 5 additional key:value tags (e.g.  env:prod  site:warehouse_a)"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="6dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <!-- Row 0 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp">
+                    <EditText android:id="@+id/etTagKey0"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="key" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text=" : " android:textSize="16sp" android:textColor="#BBBBBB" />
+                    <EditText android:id="@+id/etTagValue0"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="value" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginBottom="4dp"/>
+
+                <!-- Row 1 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp">
+                    <EditText android:id="@+id/etTagKey1"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="key" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text=" : " android:textSize="16sp" android:textColor="#BBBBBB" />
+                    <EditText android:id="@+id/etTagValue1"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="value" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginBottom="4dp"/>
+
+                <!-- Row 2 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp">
+                    <EditText android:id="@+id/etTagKey2"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="key" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text=" : " android:textSize="16sp" android:textColor="#BBBBBB" />
+                    <EditText android:id="@+id/etTagValue2"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="value" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginBottom="4dp"/>
+
+                <!-- Row 3 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp">
+                    <EditText android:id="@+id/etTagKey3"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="key" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text=" : " android:textSize="16sp" android:textColor="#BBBBBB" />
+                    <EditText android:id="@+id/etTagValue3"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="value" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginBottom="4dp"/>
+
+                <!-- Row 4 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <EditText android:id="@+id/etTagKey4"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="key" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text=" : " android:textSize="16sp" android:textColor="#BBBBBB" />
+                    <EditText android:id="@+id/etTagValue4"
+                        android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                        android:hint="value" android:textSize="13sp" android:padding="8dp"
+                        android:inputType="textNoSuggestions" android:background="@null" android:fontFamily="monospace" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Leave any row blank to skip it"
             android:textSize="12sp"
             android:textColor="#999999"
             android:layout_marginBottom="40dp" />
 
-        <!-- Buttons -->
+        <!-- ── Buttons ─────────────────────────────────────────────────────── -->
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

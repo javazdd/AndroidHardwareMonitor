@@ -1,6 +1,7 @@
 package com.s23ultra.monitor
 
 import android.content.Context
+import android.os.Build
 
 /**
  * Runtime configuration backed by SharedPreferences.
@@ -8,16 +9,20 @@ import android.content.Context
  */
 object AppConfig {
 
-    private const val PREFS         = "datadog_config"
+    private const val PREFS         = "monitor_config"
     private const val KEY_API_KEY   = "api_key"
     private const val KEY_SITE      = "site"
     private const val KEY_DEVICE_ID = "device_id"
+
+    const val MAX_CUSTOM_TAGS = 5
 
     enum class Site(val label: String, val host: String) {
         US1("AWS — US1",   "datadoghq.com"),
         US5("GCP — US5",   "us5.datadoghq.com"),
         US3("Azure — US3", "us3.datadoghq.com"),
     }
+
+    // ── Core config ────────────────────────────────────────────────────────────
 
     fun apiKey(ctx: Context): String =
         prefs(ctx).getString(KEY_API_KEY, "") ?: ""
@@ -27,7 +32,7 @@ object AppConfig {
 
     fun deviceTag(ctx: Context): String {
         val id = prefs(ctx).getString(KEY_DEVICE_ID, "")?.trim()
-        return if (id.isNullOrEmpty()) "device:s23_ultra" else "device:$id"
+        return if (id.isNullOrEmpty()) "device:unknown" else "device:$id"
     }
 
     fun isConfigured(ctx: Context): Boolean = apiKey(ctx).isNotBlank()
@@ -39,6 +44,55 @@ object AppConfig {
             .putString(KEY_DEVICE_ID, deviceId.trim())
             .apply()
     }
+
+    // ── Hardware tags (auto-detected from Build.*) ─────────────────────────────
+    // These are always appended to every metric and event — no user config needed.
+
+    fun hardwareTags(): List<String> = listOf(
+        "manufacturer:${Build.MANUFACTURER.lowercase().replace(" ", "_")}",
+        "model:${Build.MODEL.lowercase().replace(" ", "_")}",
+        "brand:${Build.BRAND.lowercase().replace(" ", "_")}",
+        "android:${Build.VERSION.RELEASE}",
+        "hardware:${Build.HARDWARE.lowercase().replace(" ", "_")}",
+        "device_codename:${Build.DEVICE.lowercase().replace(" ", "_")}"
+    )
+
+    // ── Custom tags (up to 5 user-defined KVPs) ────────────────────────────────
+
+    fun customTags(ctx: Context): List<String> {
+        val p = prefs(ctx)
+        return (0 until MAX_CUSTOM_TAGS).mapNotNull { i ->
+            val k = p.getString("custom_tag_key_$i", "")?.trim() ?: ""
+            val v = p.getString("custom_tag_value_$i", "")?.trim() ?: ""
+            if (k.isNotEmpty() && v.isNotEmpty()) "$k:$v" else null
+        }
+    }
+
+    fun loadCustomTagPairs(ctx: Context): List<Pair<String, String>> {
+        val p = prefs(ctx)
+        return (0 until MAX_CUSTOM_TAGS).map { i ->
+            Pair(
+                p.getString("custom_tag_key_$i", "") ?: "",
+                p.getString("custom_tag_value_$i", "") ?: ""
+            )
+        }
+    }
+
+    fun saveCustomTags(ctx: Context, pairs: List<Pair<String, String>>) {
+        val edit = prefs(ctx).edit()
+        pairs.take(MAX_CUSTOM_TAGS).forEachIndexed { i, (k, v) ->
+            edit.putString("custom_tag_key_$i", k.trim())
+            edit.putString("custom_tag_value_$i", v.trim())
+        }
+        edit.apply()
+    }
+
+    // ── Aggregated tag list for every outbound payload ─────────────────────────
+
+    fun allTags(ctx: Context): List<String> =
+        listOf(deviceTag(ctx)) + hardwareTags() + customTags(ctx)
+
+    // ── Internal ───────────────────────────────────────────────────────────────
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

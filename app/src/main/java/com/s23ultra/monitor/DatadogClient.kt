@@ -7,7 +7,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 data class DeviceMetric(val name: String, val value: Double)
@@ -15,30 +14,16 @@ data class DeviceMetric(val name: String, val value: Double)
 class DatadogClient(private val context: Context) {
 
     private val mediaType = "application/json".toMediaType()
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .build()
 
-    /**
-     * Sends gauge metrics to the Datadog v2 series endpoint.
-     * Reads API key, site, and device tag fresh from SharedPreferences on each call
-     * so config changes take effect without restarting the service.
-     * Metrics with NaN values are silently skipped.
-     */
     fun sendMetrics(metrics: List<DeviceMetric>) {
         val apiKey = AppConfig.apiKey(context)
         if (apiKey.isBlank()) return
 
-        val series = JSONArray()
         val nowSeconds = System.currentTimeMillis() / 1000L
+        val tags = buildTagArray(context)
+        val series = JSONArray()
 
-        val tags = JSONArray().also { arr ->
-            AppConfig.allTags(context).forEach { arr.put(it) }
-        }
-
-        metrics.filter { !it.value.isNaN() }.forEach { m ->
+        metrics.filter { !it.value.isNaN() && !it.value.isInfinite() }.forEach { m ->
             series.put(JSONObject().apply {
                 put("metric", m.name)
                 put("type", 3) // gauge
@@ -55,23 +40,20 @@ class DatadogClient(private val context: Context) {
             JSONObject().put("series", series).toString())
     }
 
-    /**
-     * Fires a Datadog event (v1 events endpoint).
-     * @param alertType one of: "error", "warning", "info", "success"
-     */
     fun sendEvent(title: String, text: String, alertType: String = "info") {
         val apiKey = AppConfig.apiKey(context)
         if (apiKey.isBlank()) return
         val body = JSONObject().apply {
             put("title", title)
-            put("text", text)
+            put("text",  text)
             put("alert_type", alertType)
-            put("tags", JSONArray().also { arr ->
-                AppConfig.allTags(context).forEach { arr.put(it) }
-            })
+            put("tags", buildTagArray(context))
         }.toString()
         post(apiKey, "https://api.${AppConfig.site(context)}/api/v1/events", body)
     }
+
+    private fun buildTagArray(ctx: Context): JSONArray =
+        JSONArray().also { arr -> AppConfig.allTags(ctx).forEach { arr.put(it) } }
 
     private fun post(apiKey: String, url: String, body: String) {
         val request = Request.Builder()
@@ -82,8 +64,22 @@ class DatadogClient(private val context: Context) {
             .build()
         try {
             http.newCall(request).execute().use { }
-        } catch (_: IOException) {
-            // Tolerated — next poll will retry.
+        } catch (_: Exception) {
+            // Network or protocol error — tolerated, next poll cycle will retry.
         }
+    }
+
+    companion object {
+        /**
+         * Shared across all DatadogClient instances and service restarts.
+         * OkHttpClient owns a thread pool + connection pool; creating a new one
+         * on every service start would leave dangling threads until GC collects them.
+         */
+        private val http: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false) // explicit — don't retry; next poll will
+            .build()
     }
 }

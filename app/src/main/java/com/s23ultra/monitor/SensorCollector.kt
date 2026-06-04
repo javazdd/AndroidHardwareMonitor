@@ -26,10 +26,12 @@ class SensorCollector(
 
     private val sensorManager = context.getSystemService(SensorManager::class.java)
 
-    var pressureHpa: Float = Float.NaN; private set
-    var lightLux: Float    = Float.NaN; private set
-    var stepCount: Float   = Float.NaN; private set
-    var humidityPct: Float = Float.NaN; private set
+    // @Volatile ensures the IO coroutine in MonitoringService always reads the value
+    // written by the sensor callback thread, not a stale register-cached copy.
+    @Volatile var pressureHpa: Float = Float.NaN; private set
+    @Volatile var lightLux: Float    = Float.NaN; private set
+    @Volatile var stepCount: Float   = Float.NaN; private set
+    @Volatile var humidityPct: Float = Float.NaN; private set
 
     // Fall detection state machine
     private var inFreeFall = false
@@ -39,7 +41,11 @@ class SensorCollector(
     private var lastFallMs   = 0L
 
     fun start() {
-        register(Sensor.TYPE_LINEAR_ACCELERATION, SensorManager.SENSOR_DELAY_GAME)
+        // SENSOR_DELAY_UI (~60 Hz) is sufficient for fall/impact detection and uses
+        // ~4× less CPU than SENSOR_DELAY_GAME (~200 Hz). The minimum detectable
+        // free-fall window (FREE_FALL_MIN_MS = 80 ms) spans ~5 samples at 60 Hz,
+        // which is enough to reliably distinguish a drop from a rapid tilt.
+        register(Sensor.TYPE_LINEAR_ACCELERATION, SensorManager.SENSOR_DELAY_UI)
         register(Sensor.TYPE_PRESSURE,            SensorManager.SENSOR_DELAY_NORMAL)
         register(Sensor.TYPE_LIGHT,               SensorManager.SENSOR_DELAY_NORMAL)
         register(Sensor.TYPE_STEP_COUNTER,        SensorManager.SENSOR_DELAY_NORMAL)
@@ -101,12 +107,10 @@ class SensorCollector(
     }
 
     companion object {
-        // CT47 is MIL-SPEC 810H rated for 1.5 m drops — normal handling regularly
-        // exceeds the S23 Ultra thresholds. Calibrated for warehouse/field use.
-        private const val FREE_FALL_G_THRESHOLD   = 0.3f   // g — tighter free-fall window
-        private const val FREE_FALL_MIN_MS         = 120L   // ms — longer free-fall required
-        private const val IMPACT_G_THRESHOLD       = 5.0f   // g — higher post-freefall threshold
-        private const val HARD_IMPACT_G_THRESHOLD  = 8.0f   // g — hard knock (e.g. drop onto concrete)
-        private const val EVENT_COOLDOWN_MS        = 3_000L // longer cooldown for frequent handling
+        private const val FREE_FALL_G_THRESHOLD   = 0.5f   // g — below this = near-weightless
+        private const val FREE_FALL_MIN_MS         = 80L    // ms — minimum freefall window
+        private const val IMPACT_G_THRESHOLD       = 3.0f   // g — spike after freefall
+        private const val HARD_IMPACT_G_THRESHOLD  = 4.5f   // g — direct knock without freefall
+        private const val EVENT_COOLDOWN_MS        = 2_000L // prevent duplicate events
     }
 }

@@ -70,11 +70,24 @@ object AppConfig {
     fun customTags(ctx: Context): List<String> {
         val p = prefs(ctx)
         return (0 until MAX_CUSTOM_TAGS).mapNotNull { i ->
-            val k = p.getString("custom_tag_key_$i", "")?.trim() ?: ""
-            val v = p.getString("custom_tag_value_$i", "")?.trim() ?: ""
+            val k = sanitizeTagKey(p.getString("custom_tag_key_$i", "") ?: "")
+            val v = sanitizeTagValue(p.getString("custom_tag_value_$i", "") ?: "")
             if (k.isNotEmpty() && v.isNotEmpty()) "$k:$v" else null
         }
     }
+
+    /**
+     * Tag keys must not contain colons (which separate key from value) or commas
+     * (which separate tags in some serialisation formats). Enforce a 100-char cap.
+     */
+    private fun sanitizeTagKey(raw: String): String =
+        raw.trim().replace(Regex("[:\\s,]"), "_").take(100)
+
+    /**
+     * Tag values must not contain commas. Enforce a 200-char cap.
+     */
+    private fun sanitizeTagValue(raw: String): String =
+        raw.trim().replace(",", "_").take(200)
 
     fun loadCustomTagPairs(ctx: Context): List<Pair<String, String>> {
         val p = prefs(ctx)

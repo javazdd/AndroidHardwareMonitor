@@ -11,7 +11,7 @@ import android.telephony.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.io.File
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.LinkedBlockingQueue
 
 class MonitoringService : Service() {
 
@@ -26,12 +26,15 @@ class MonitoringService : Service() {
     private var lastRxBytes = TrafficStats.getMobileRxBytes()
     private var lastTxBytes = TrafficStats.getMobileTxBytes()
 
-    // Events queued from async callbacks; drained at the start of every poll cycle.
-    // ConcurrentLinkedQueue is safe to offer() from any thread and poll() from the IO coroutine.
+    // Bounded queue: events from async callbacks (network, sensors, reboot) are queued
+    // here and flushed at the start of each poll cycle. Cap at 50 entries so rapid
+    // accelerometer spikes or connectivity flaps cannot grow memory without bound.
     private data class QueuedEvent(val title: String, val text: String, val alertType: String)
-    private val eventQueue = ConcurrentLinkedQueue<QueuedEvent>()
+    private val eventQueue = LinkedBlockingQueue<QueuedEvent>(MAX_QUEUED_EVENTS)
 
     private fun queueEvent(title: String, text: String, alertType: String) {
+        // offer() is non-blocking and silently drops the event when the queue is full,
+        // which is the correct behaviour (an overfull queue signals a sensor runaway).
         eventQueue.offer(QueuedEvent(title, text, alertType))
     }
 
@@ -129,7 +132,15 @@ class MonitoringService : Service() {
     // ── Poll cycle ────────────────────────────────────────────────────────────
 
     private fun poll() {
-        // 1. Drain the event queue — send everything that was captured since the last cycle.
+        // Top-level guard: any hardware read can throw (bad fd, null service, etc.).
+        // Catching here keeps the coroutine loop alive even if one cycle fails entirely.
+        try {
+            doPoll()
+        } catch (_: Exception) { }
+    }
+
+    private fun doPoll() {
+        // 1. Drain the event queue — send everything captured since the last cycle.
         var event = eventQueue.poll()
         while (event != null) {
             client.sendEvent(event.title, event.text, event.alertType)
@@ -157,9 +168,11 @@ class MonitoringService : Service() {
         (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memInfo)
         val ramAvailMb    = memInfo.availMem / 1_048_576.0
         val ramTotalMb    = memInfo.totalMem / 1_048_576.0
-        val storageFreeGb = StatFs(Environment.getDataDirectory().path).run {
-            availableBlocksLong * blockSizeLong / 1_073_741_824.0
-        }
+        val storageFreeGb = try {
+            StatFs(Environment.getDataDirectory().path).run {
+                availableBlocksLong * blockSizeLong / 1_073_741_824.0
+            }
+        } catch (_: Exception) { Double.NaN }
         val thermalHeadroom = (getSystemService(POWER_SERVICE) as PowerManager)
             .getThermalHeadroom(30).toDouble()
         val uptimeSec = rebootTracker.uptimeSeconds().toDouble()
@@ -216,7 +229,7 @@ class MonitoringService : Service() {
         val pctStr = if (pct.isNaN()) "?" else "${pct.toInt()}%"
         val sigStr = if (signalDbm.isNaN()) "N/A" else "${signalDbm.toInt()} dBm"
         val ivlStr = "${AppConfig.pollIntervalSeconds(this)}s"
-        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every ${ivlStr}")
+        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every $ivlStr")
     }
 
     // ── Sensor / hardware reads ───────────────────────────────────────────────
@@ -285,7 +298,8 @@ class MonitoringService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID      = "monitor_channel"
-        private const val NOTIFICATION_ID = 1
+        private const val CHANNEL_ID        = "monitor_channel"
+        private const val NOTIFICATION_ID   = 1
+        private const val MAX_QUEUED_EVENTS = 50
     }
 }

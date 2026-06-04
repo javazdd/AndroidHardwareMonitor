@@ -10,6 +10,7 @@ import com.google.android.material.textfield.TextInputLayout
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var spinnerSite: Spinner
+    private lateinit var spinnerInterval: Spinner
     private lateinit var tilApiKey: TextInputLayout
     private lateinit var etApiKey: TextInputEditText
     private lateinit var etDeviceId: EditText
@@ -17,7 +18,6 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnSave: Button
     private lateinit var btnDiscard: Button
 
-    // Five custom tag rows  (key EditText, value EditText)
     private val tagRows: List<Pair<EditText, EditText>> by lazy {
         listOf(
             Pair(findViewById(R.id.etTagKey0), findViewById(R.id.etTagValue0)),
@@ -34,15 +34,17 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.title = "Monitoring Configuration"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        spinnerSite   = findViewById(R.id.spinnerSite)
-        tilApiKey     = findViewById(R.id.tilApiKey)
-        etApiKey      = findViewById(R.id.etApiKey)
-        etDeviceId    = findViewById(R.id.etDeviceId)
-        tvHardwareTags = findViewById(R.id.tvHardwareTags)
-        btnSave       = findViewById(R.id.btnSave)
-        btnDiscard    = findViewById(R.id.btnDiscard)
+        spinnerSite     = findViewById(R.id.spinnerSite)
+        spinnerInterval = findViewById(R.id.spinnerInterval)
+        tilApiKey       = findViewById(R.id.tilApiKey)
+        etApiKey        = findViewById(R.id.etApiKey)
+        etDeviceId      = findViewById(R.id.etDeviceId)
+        tvHardwareTags  = findViewById(R.id.tvHardwareTags)
+        btnSave         = findViewById(R.id.btnSave)
+        btnDiscard      = findViewById(R.id.btnDiscard)
 
         setupSiteSpinner()
+        setupIntervalSpinner()
         populateHardwareTags()
         loadSavedValues()
 
@@ -54,16 +56,36 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupSiteSpinner() {
         val labels = AppConfig.Site.entries.map { it.label }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerSite.adapter = adapter
+        spinnerSite.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         val currentHost = AppConfig.site(this)
-        val idx = AppConfig.Site.entries.indexOfFirst { it.host == currentHost }.coerceAtLeast(0)
-        spinnerSite.setSelection(idx)
+        spinnerSite.setSelection(
+            AppConfig.Site.entries.indexOfFirst { it.host == currentHost }.coerceAtLeast(0)
+        )
     }
 
-    // ── Hardware tags (read-only display) ─────────────────────────────────────
+    // ── Interval spinner ──────────────────────────────────────────────────────
+
+    private fun setupIntervalSpinner() {
+        val labels = AppConfig.INTERVAL_OPTIONS.map { sec ->
+            when {
+                sec < 60  -> "Every ${sec}s"
+                sec == 60L -> "Every 60s (1 min)"
+                sec < 300 -> "Every ${sec}s (${sec / 60} min)"
+                else       -> "Every ${sec}s (5 min)"
+            }
+        }
+        spinnerInterval.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        val saved = AppConfig.pollIntervalSeconds(this)
+        spinnerInterval.setSelection(
+            AppConfig.INTERVAL_OPTIONS.indexOf(saved).coerceAtLeast(1) // default index 1 = 30s
+        )
+    }
+
+    // ── Hardware tags (read-only) ─────────────────────────────────────────────
 
     private fun populateHardwareTags() {
         tvHardwareTags.text = AppConfig.hardwareTags().joinToString("\n")
@@ -72,12 +94,8 @@ class SettingsActivity : AppCompatActivity() {
     // ── Pre-fill saved values ─────────────────────────────────────────────────
 
     private fun loadSavedValues() {
-        // API key is masked by default (inputType=textPassword in XML);
-        // the eye icon in TextInputLayout lets the user reveal it on demand.
         etApiKey.setText(AppConfig.apiKey(this))
-
-        val savedId = AppConfig.deviceTag(this).removePrefix("device:")
-        etDeviceId.setText(savedId)
+        etDeviceId.setText(AppConfig.deviceTag(this).removePrefix("device:"))
 
         val savedPairs = AppConfig.loadCustomTagPairs(this)
         tagRows.forEachIndexed { i, (keyView, valView) ->
@@ -89,9 +107,10 @@ class SettingsActivity : AppCompatActivity() {
     // ── Save ──────────────────────────────────────────────────────────────────
 
     private fun onSave() {
-        val apiKey   = etApiKey.text.toString().trim()
-        val siteHost = AppConfig.Site.entries[spinnerSite.selectedItemPosition].host
-        val deviceId = etDeviceId.text.toString().trim()
+        val apiKey      = etApiKey.text.toString().trim()
+        val siteHost    = AppConfig.Site.entries[spinnerSite.selectedItemPosition].host
+        val deviceId    = etDeviceId.text.toString().trim()
+        val intervalSec = AppConfig.INTERVAL_OPTIONS[spinnerInterval.selectedItemPosition]
 
         if (apiKey.isBlank()) {
             tilApiKey.error = "API key is required"
@@ -99,7 +118,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         tilApiKey.error = null
 
-        AppConfig.save(this, apiKey, siteHost, deviceId)
+        AppConfig.save(this, apiKey, siteHost, deviceId, intervalSec)
         AppConfig.saveCustomTags(this, tagRows.map { (k, v) ->
             Pair(k.text.toString(), v.text.toString())
         })
@@ -108,7 +127,7 @@ class SettingsActivity : AppCompatActivity() {
         stopService(svc)
         startForegroundService(svc)
 
-        Toast.makeText(this, "Saved — monitoring restarted", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Saved — monitoring restarted (${intervalSec}s interval)", Toast.LENGTH_SHORT).show()
         finish()
     }
 

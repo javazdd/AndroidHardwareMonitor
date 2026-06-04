@@ -16,6 +16,9 @@ object AppConfig {
 
     const val MAX_CUSTOM_TAGS = 5
 
+    /** Allowed emission intervals in seconds, shown as-is in the settings dropdown. */
+    val INTERVAL_OPTIONS = listOf(15L, 30L, 60L, 120L, 300L)
+
     enum class Site(val label: String, val host: String) {
         US1("AWS — US1",   "datadoghq.com"),
         US5("GCP — US5",   "us5.datadoghq.com"),
@@ -37,11 +40,16 @@ object AppConfig {
 
     fun isConfigured(ctx: Context): Boolean = apiKey(ctx).isNotBlank()
 
-    fun save(ctx: Context, apiKey: String, siteHost: String, deviceId: String) {
+    fun pollIntervalSeconds(ctx: Context): Long =
+        prefs(ctx).getLong("poll_interval_sec", 30L)
+            .coerceIn(INTERVAL_OPTIONS.first(), INTERVAL_OPTIONS.last())
+
+    fun save(ctx: Context, apiKey: String, siteHost: String, deviceId: String, intervalSec: Long) {
         prefs(ctx).edit()
-            .putString(KEY_API_KEY,   apiKey.trim())
-            .putString(KEY_SITE,      siteHost)
-            .putString(KEY_DEVICE_ID, deviceId.trim())
+            .putString(KEY_API_KEY,        apiKey.trim())
+            .putString(KEY_SITE,           siteHost)
+            .putString(KEY_DEVICE_ID,      deviceId.trim())
+            .putLong("poll_interval_sec",  intervalSec)
             .apply()
     }
 

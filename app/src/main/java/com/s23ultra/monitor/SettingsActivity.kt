@@ -16,7 +16,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        supportActionBar?.title = "Datadog Configuration"
+        supportActionBar?.title = "Monitoring Configuration"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         spinnerSite  = findViewById(R.id.spinnerSite)

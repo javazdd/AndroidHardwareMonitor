@@ -23,7 +23,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sending metrics to Datadog every 30 s"
+            android:text="Sending metrics every 30 s"
             android:textSize="13sp"
             android:textColor="#888888"
             android:layout_marginBottom="32dp" />

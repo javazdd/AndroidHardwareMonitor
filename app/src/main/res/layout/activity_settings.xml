@@ -10,11 +10,11 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- Section: Datadog site -->
+        <!-- Section: backend site -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DATADOG SITE"
+            android:text="BACKEND SITE"
             android:textSize="11sp"
             android:letterSpacing="0.1"
             android:textColor="#999999"
@@ -46,7 +46,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="API KEY"
+            android:text="BACKEND API KEY"
             android:textSize="11sp"
             android:letterSpacing="0.1"
             android:textColor="#999999"
@@ -65,7 +65,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="16dp"
-                android:hint="Paste your Datadog API key here"
+                android:hint="Paste your backend API key here"
                 android:textSize="14sp"
                 android:inputType="textNoSuggestions"
                 android:background="@null"
@@ -75,7 +75,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Find yours at app.datadoghq.com → Organization Settings → API Keys"
+            android:text="Find yours in your backend's organization or API settings"
             android:textSize="12sp"
             android:textColor="#999999"
             android:layout_marginBottom="24dp" />
@@ -84,7 +84,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DEVICE ID  (used as the device: tag in Datadog)"
+            android:text="DEVICE ID  (used as the device: tag)"
             android:textSize="11sp"
             android:letterSpacing="0.1"
             android:textColor="#999999"
@@ -112,7 +112,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Metrics will appear as device:{id} in Datadog"
+            android:text="Metrics will be tagged as device:{id}"
             android:textSize="12sp"
             android:textColor="#999999"
             android:layout_marginBottom="40dp" />

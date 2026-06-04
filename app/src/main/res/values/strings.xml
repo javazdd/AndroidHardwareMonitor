@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">S23 Ultra Monitor</string>
     <string name="notification_channel_name">Device Monitoring</string>
-    <string name="notification_channel_desc">Live temperature, signal, and connectivity status sent to Datadog</string>
+    <string name="notification_channel_desc">Live temperature, signal, and connectivity monitoring</string>
 </resources>

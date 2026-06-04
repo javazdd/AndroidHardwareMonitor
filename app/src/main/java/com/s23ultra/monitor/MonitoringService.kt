@@ -270,7 +270,7 @@ class MonitoringService : Service() {
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val ch = NotificationChannel(CHANNEL_ID, "Device Monitoring", NotificationManager.IMPORTANCE_LOW)
-                .apply { description = "Live device telemetry sent to Datadog" }
+                .apply { description = "Live device telemetry monitoring" }
             getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
         }
     }

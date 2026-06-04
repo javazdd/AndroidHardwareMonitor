@@ -340,6 +340,64 @@
             android:textColor="#999999"
             android:layout_marginBottom="40dp" />
 
+        <!-- ── DEBUG LOGGING ──────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DEBUG LOGGING"
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Send diagnostic logs to backend"
+                        android:textSize="15sp"
+                        android:textColor="#222222" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Logs service lifecycle, events, errors, and HTTP failures. Disable when not needed."
+                        android:textSize="12sp"
+                        android:textColor="#999999"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchDebugLogging"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Only enable when diagnosing issues — each log entry is an additional network call."
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="32dp" />
+
         <!-- ── Buttons ─────────────────────────────────────────────────────── -->
         <Button
             android:id="@+id/btnSave"

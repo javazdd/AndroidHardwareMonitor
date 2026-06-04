@@ -40,6 +40,13 @@ object AppConfig {
 
     fun isConfigured(ctx: Context): Boolean = apiKey(ctx).isNotBlank()
 
+    fun isDebugLoggingEnabled(ctx: Context): Boolean =
+        prefs(ctx).getBoolean("debug_logging", false)
+
+    fun saveDebugLogging(ctx: Context, enabled: Boolean) {
+        prefs(ctx).edit().putBoolean("debug_logging", enabled).apply()
+    }
+
     fun pollIntervalSeconds(ctx: Context): Long =
         prefs(ctx).getLong("poll_interval_sec", 30L)
             .coerceIn(INTERVAL_OPTIONS.first(), INTERVAL_OPTIONS.last())

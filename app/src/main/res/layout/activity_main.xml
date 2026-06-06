@@ -177,7 +177,7 @@
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="12dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
             app:cardBackgroundColor="#FFFFFF">
@@ -201,6 +201,135 @@
                     android:text="Connectivity: —"
                     android:textSize="18sp"
                     android:textColor="#1A1A2E" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Springshot API status card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SPRINGSHOT APIs"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- summary row: dot + "N/9 UP" -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <View
+                        android:id="@+id/viewApiDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:background="@drawable/dot_grey"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:id="@+id/tvApiSummary"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Checking…"
+                        android:textSize="16sp"
+                        android:textColor="#1A1A2E" />
+                </LinearLayout>
+
+                <!-- per-endpoint detail rows (filled programmatically) -->
+                <LinearLayout
+                    android:id="@+id/llApiEndpoints"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:id="@+id/tvApiLastChecked"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Last checked: —"
+                    android:textSize="12sp"
+                    android:textColor="#AAAAAA"
+                    android:layout_marginTop="6dp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Datadog send-status card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:id="@+id/cardDdogStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DATADOG"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textColor="#999999"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- dot + status message on the same row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <View
+                        android:id="@+id/viewDdogDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:background="@drawable/dot_grey"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:id="@+id/tvDdogStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Waiting for first send…"
+                        android:textSize="16sp"
+                        android:textColor="#1A1A2E" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvDdogLastSent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Last sent: —"
+                    android:textSize="13sp"
+                    android:textColor="#888888" />
+
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

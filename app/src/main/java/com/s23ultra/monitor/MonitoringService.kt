@@ -28,6 +28,7 @@ class MonitoringService : Service() {
     // Single poll job — cancelled and replaced on each onStartCommand so a
     // settings-triggered service restart doesn't accumulate parallel loops.
     private var pollJob: Job? = null
+    private var endpointJob: Job? = null
 
     // ── Network callback — fires events immediately ────────────────────────────
 
@@ -126,6 +127,28 @@ class MonitoringService : Service() {
                 delay(intervalMs)
             }
         }
+
+        endpointJob?.cancel()
+        endpointJob = scope.launch {
+            while (isActive) {
+                try {
+                    val withTransitions = EndpointChecker.checkWithTransitions()
+                    val results = withTransitions.map { it.first }
+                    lastEndpointResults = results
+                    lastEndpointCheckMs = System.currentTimeMillis()
+                    client.sendEndpointResults(results, withTransitions)
+                    DiagLogger.log(
+                        this@MonitoringService, DiagLogger.Level.INFO,
+                        "Endpoint check: ${results.count { it.isUp }}/${results.size} up"
+                    )
+                } catch (e: Exception) {
+                    DiagLogger.log(this@MonitoringService, DiagLogger.Level.WARN,
+                        "Endpoint check failed: ${e.message?.take(100)}")
+                }
+                delay(ENDPOINT_CHECK_INTERVAL_MS)
+            }
+        }
+
         return START_STICKY
     }
 
@@ -134,6 +157,7 @@ class MonitoringService : Service() {
         DiagLogger.log(this, DiagLogger.Level.INFO, "MonitoringService stopped")
         connectivityManager.unregisterNetworkCallback(networkCallback)
         sensorCollector.stop()
+        endpointJob?.cancel()
         scope.cancel()
     }
 
@@ -229,7 +253,9 @@ class MonitoringService : Service() {
 
         val pctStr = if (pct.isNaN()) "?" else "${pct.toInt()}%"
         val sigStr = if (signalDbm.isNaN()) "N/A" else "${signalDbm.toInt()} dBm"
-        updateNotification("Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · every ${AppConfig.pollIntervalSeconds(this)}s")
+        updateNotification(
+            "Bat $pctStr ${tempC}°C · CPU ${cpuTempC}°C · $sigStr · ${DatadogClient.lastSendMessage}"
+        )
     }
 
     // ── Hardware reads ────────────────────────────────────────────────────────
@@ -298,7 +324,12 @@ class MonitoringService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID      = "monitor_channel"
-        private const val NOTIFICATION_ID = 1
+        private const val CHANNEL_ID             = "monitor_channel"
+        private const val NOTIFICATION_ID        = 1
+        private const val ENDPOINT_CHECK_INTERVAL_MS = 5 * 60 * 1_000L
+
+        /** Shared results read by MainActivity UI polling loop. */
+        @Volatile var lastEndpointResults: List<EndpointResult> = emptyList()
+        @Volatile var lastEndpointCheckMs: Long = 0L
     }
 }

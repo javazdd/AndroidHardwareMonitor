@@ -15,6 +15,7 @@ class DatadogClient(private val context: Context) {
 
     private val mediaType = "application/json".toMediaType()
 
+
     fun sendMetrics(metrics: List<DeviceMetric>) {
         val apiKey = AppConfig.apiKey(context)
         if (apiKey.isBlank()) return
@@ -40,14 +41,65 @@ class DatadogClient(private val context: Context) {
         post(apiKey, url, JSONObject().put("series", series).toString(), "metrics")
     }
 
+    fun sendEndpointResults(results: List<EndpointResult>, transitions: List<Pair<EndpointResult, Boolean>>) {
+        val apiKey = AppConfig.apiKey(context)
+        if (apiKey.isBlank()) return
+
+        val nowSeconds = System.currentTimeMillis() / 1000L
+        val baseTags   = buildTagArray(context)
+        val series     = JSONArray()
+
+        results.forEach { r ->
+            val endpointTag = JSONArray(baseTags.toString()).also { it.put("endpoint:${r.name}") }
+
+            series.put(JSONObject().apply {
+                put("metric", "springshot.endpoint.up")
+                put("type",   3)
+                put("points", JSONArray().put(JSONObject().apply {
+                    put("timestamp", nowSeconds)
+                    put("value",     if (r.isUp) 1.0 else 0.0)
+                }))
+                put("tags", endpointTag)
+            })
+
+            if (r.latencyMs > 0 && r.isUp) {
+                series.put(JSONObject().apply {
+                    put("metric", "springshot.endpoint.latency_ms")
+                    put("type",   3)
+                    put("points", JSONArray().put(JSONObject().apply {
+                        put("timestamp", nowSeconds)
+                        put("value",     r.latencyMs.toDouble())
+                    }))
+                    put("tags", endpointTag)
+                })
+            }
+        }
+
+        if (series.length() > 0) {
+            val url = "https://api.${AppConfig.site(context)}/api/v2/series"
+            post(apiKey, url, JSONObject().put("series", series).toString(), "endpoint-metrics")
+        }
+
+        // Fire events only for state transitions
+        transitions.forEach { (r, changed) ->
+            if (!changed) return@forEach
+            if (r.isUp) {
+                sendEvent("Springshot ${r.name} recovered", "${r.host} is reachable again (${r.label})", "success")
+            } else {
+                sendEvent("Springshot ${r.name} unreachable", "${r.host} failed: ${r.label}", "error")
+            }
+        }
+    }
+
     fun sendEvent(title: String, text: String, alertType: String = "info") {
         val apiKey = AppConfig.apiKey(context)
         if (apiKey.isBlank()) return
         val body = JSONObject().apply {
-            put("title",      title)
-            put("text",       text)
-            put("alert_type", alertType)
-            put("tags",       buildTagArray(context))
+            put("title",            title)
+            put("text",             text)
+            put("alert_type",       alertType)
+            put("source_type_name", SOURCE_TYPE)
+            put("tags",             buildTagArray(context))
         }.toString()
         val url = "https://api.${AppConfig.site(context)}/api/v1/events"
         post(apiKey, url, body, "event[$title]")
@@ -57,6 +109,7 @@ class DatadogClient(private val context: Context) {
         JSONArray().also { arr -> AppConfig.allTags(ctx).forEach { arr.put(it) } }
 
     private fun post(apiKey: String, url: String, body: String, label: String) {
+        val host = url.substringAfter("//").substringBefore("/")
         val request = Request.Builder()
             .url(url)
             .addHeader("DD-API-KEY", apiKey)
@@ -65,35 +118,39 @@ class DatadogClient(private val context: Context) {
             .build()
         try {
             http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    DiagLogger.log(
-                        ctx     = context,
-                        level   = DiagLogger.Level.ERROR,
-                        message = "HTTP ${response.code} sending $label to ${url.substringAfter("//").substringBefore("/")}",
-                    )
+                if (response.isSuccessful) {
+                    lastSendOk      = true
+                    lastSendMessage = "Sent OK"
+                    lastSendTimeMs  = System.currentTimeMillis()
+                } else {
+                    lastSendOk      = false
+                    lastSendMessage = "HTTP ${response.code} — check API key / site"
+                    lastSendTimeMs  = System.currentTimeMillis()
+                    DiagLogger.logCrash(context, "Send failed HTTP ${response.code} → $host ($label)")
                 }
             }
         } catch (e: Exception) {
-            DiagLogger.log(
-                ctx     = context,
-                level   = DiagLogger.Level.ERROR,
-                message = "Network error sending $label",
-                error   = e,
-            )
+            lastSendOk      = false
+            lastSendMessage = "Network error: ${e.javaClass.simpleName}"
+            lastSendTimeMs  = System.currentTimeMillis()
+            DiagLogger.logCrash(context, "Send exception → $host: ${e.message?.take(200)}")
         }
     }
 
     companion object {
-        /**
-         * Shared across all DatadogClient instances and DiagLogger.
-         * Exposed as internal so DiagLogger can reuse the same connection pool
-         * without spinning up a second thread pool.
-         */
+        /** Unique source name stamped on every event — used to filter the dashboard widget. */
+        const val SOURCE_TYPE = "android-hardware-monitor"
+
         internal val http: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false)
             .build()
+
+        /** Send status — written by background thread, read by UI thread. */
+        @Volatile var lastSendOk: Boolean? = null      // null = never attempted
+        @Volatile var lastSendMessage: String = "Waiting for first send…"
+        @Volatile var lastSendTimeMs: Long = 0L
     }
 }

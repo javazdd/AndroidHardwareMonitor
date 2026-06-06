@@ -11,16 +11,21 @@ android {
         applicationId "com.s23ultra.monitor"
         minSdk 31
         targetSdk 34
-        versionCode 13
-        versionName "2.2"
+        versionCode 16
+        versionName "2.5"
     }
 
     signingConfigs {
         release {
-            storeFile     file("${System.getProperty('user.home')}/S23UltraMonitor/keystore/release.jks")
-            storePassword 'monitor2026'
-            keyAlias      'monitor'
-            keyPassword   'monitor2026'
+            def props = new Properties()
+            def localPropsFile = rootProject.file('local.properties')
+            if (localPropsFile.exists()) props.load(localPropsFile.newDataInputStream())
+
+            storeFile     file(props.getProperty('KEYSTORE_PATH',
+                                "${System.getProperty('user.home')}/S23UltraMonitor/keystore/release.jks"))
+            storePassword props.getProperty('KEYSTORE_PASSWORD', '')
+            keyAlias      props.getProperty('KEY_ALIAS',         'monitor')
+            keyPassword   props.getProperty('KEY_PASSWORD',      '')
         }
     }
 

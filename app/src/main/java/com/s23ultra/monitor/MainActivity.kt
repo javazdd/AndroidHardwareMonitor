@@ -4,12 +4,15 @@ import android.Manifest
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.*
 import android.telephony.*
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -19,6 +22,9 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,6 +36,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvRam: TextView
     private lateinit var tvStorage: TextView
     private lateinit var tvStatus: TextView
+    private lateinit var viewDdogDot: View
+    private lateinit var tvDdogStatus: TextView
+    private lateinit var tvDdogLastSent: TextView
+
+    private lateinit var viewApiDot: View
+    private lateinit var tvApiSummary: TextView
+    private lateinit var llApiEndpoints: LinearLayout
+    private lateinit var tvApiLastChecked: TextView
+
+    private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.US)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -50,14 +66,21 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
             StartupLog.step(this, "setContentView OK")
 
-            tvBatteryPct   = findViewById(R.id.tvBatteryPct)
-            tvBatteryTemp  = findViewById(R.id.tvBatteryTemp)
-            tvCpuTemp      = findViewById(R.id.tvCpuTemp)
-            tvSignal       = findViewById(R.id.tvSignal)
-            tvConnectivity = findViewById(R.id.tvConnectivity)
-            tvRam          = findViewById(R.id.tvRam)
-            tvStorage      = findViewById(R.id.tvStorage)
-            tvStatus       = findViewById(R.id.tvStatus)
+            tvBatteryPct    = findViewById(R.id.tvBatteryPct)
+            tvBatteryTemp   = findViewById(R.id.tvBatteryTemp)
+            tvCpuTemp       = findViewById(R.id.tvCpuTemp)
+            tvSignal        = findViewById(R.id.tvSignal)
+            tvConnectivity  = findViewById(R.id.tvConnectivity)
+            tvRam           = findViewById(R.id.tvRam)
+            tvStorage       = findViewById(R.id.tvStorage)
+            tvStatus        = findViewById(R.id.tvStatus)
+            viewDdogDot      = findViewById(R.id.viewDdogDot)
+            tvDdogStatus     = findViewById(R.id.tvDdogStatus)
+            tvDdogLastSent   = findViewById(R.id.tvDdogLastSent)
+            viewApiDot       = findViewById(R.id.viewApiDot)
+            tvApiSummary     = findViewById(R.id.tvApiSummary)
+            llApiEndpoints   = findViewById(R.id.llApiEndpoints)
+            tvApiLastChecked = findViewById(R.id.tvApiLastChecked)
             StartupLog.step(this, "Views bound OK")
 
             if (!AppConfig.isConfigured(this)) {
@@ -202,6 +225,114 @@ class MainActivity : AppCompatActivity() {
         val sf = StatFs(Environment.getDataDirectory().path)
         val freeGb = sf.availableBlocksLong * sf.blockSizeLong / 1_073_741_824.0
         tvStorage.text = "Storage: ${"%.1f".format(freeGb)} GB free"
+
+        refreshApiStatus()
+        refreshDdogStatus()
+    }
+
+    private fun refreshApiStatus() {
+        val results = MonitoringService.lastEndpointResults
+        val checkMs = MonitoringService.lastEndpointCheckMs
+
+        if (results.isEmpty()) {
+            tvApiSummary.text = "First check in progress…"
+            tvApiSummary.setTextColor(getColor(android.R.color.darker_gray))
+            viewApiDot.setBackgroundResource(R.drawable.dot_grey)
+            tvApiLastChecked.text = "Last checked: —"
+            return
+        }
+
+        val upCount   = results.count { it.isUp }
+        val downCount = results.size - upCount
+        val allUp     = downCount == 0
+
+        viewApiDot.setBackgroundResource(if (allUp) R.drawable.dot_green else R.drawable.dot_red)
+        tvApiSummary.text = if (allUp) "All ${results.size} endpoints reachable"
+                            else "$downCount of ${results.size} endpoints unreachable"
+        tvApiSummary.setTextColor(
+            if (allUp) getColor(android.R.color.holo_green_dark)
+            else       getColor(android.R.color.holo_red_dark)
+        )
+
+        // Rebuild the per-endpoint rows
+        llApiEndpoints.removeAllViews()
+        val endpointsToShow = if (allUp) {
+            // When all up, show the two most latency-sensitive ones
+            results.filter { it.name in listOf("api", "rt") }
+        } else {
+            // When something is down, show ALL rows so every failure is visible
+            results
+        }
+
+        endpointsToShow.forEach { r ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, 3, 0, 3)
+            }
+
+            val dot = View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(10.dp, 10.dp).also {
+                    it.marginEnd = 8.dp
+                    it.topMargin = 4.dp
+                }
+                setBackgroundResource(if (r.isUp) R.drawable.dot_green else R.drawable.dot_red)
+            }
+
+            val label = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = r.host
+                textSize = 12f
+                setTextColor(getColor(android.R.color.darker_gray))
+            }
+
+            val detail = TextView(this).apply {
+                text = if (r.isUp) "${r.latencyMs} ms" else r.label
+                textSize = 12f
+                typeface = Typeface.MONOSPACE
+                setTextColor(
+                    if (r.isUp) getColor(android.R.color.holo_green_dark)
+                    else        getColor(android.R.color.holo_red_dark)
+                )
+            }
+
+            row.addView(dot)
+            row.addView(label)
+            row.addView(detail)
+            llApiEndpoints.addView(row)
+        }
+
+        tvApiLastChecked.text = if (checkMs > 0)
+            "Last checked: ${timeFmt.format(Date(checkMs))}"
+        else "Last checked: —"
+    }
+
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
+    private fun refreshDdogStatus() {
+        val ok  = DatadogClient.lastSendOk
+        val msg = DatadogClient.lastSendMessage
+        val ts  = DatadogClient.lastSendTimeMs
+
+        when (ok) {
+            null -> {
+                viewDdogDot.setBackgroundResource(R.drawable.dot_grey)
+                tvDdogStatus.text = msg
+                tvDdogStatus.setTextColor(getColor(android.R.color.darker_gray))
+                tvDdogLastSent.text = "Last sent: —"
+            }
+            true -> {
+                viewDdogDot.setBackgroundResource(R.drawable.dot_green)
+                tvDdogStatus.text = msg
+                tvDdogStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+                tvDdogLastSent.text = "Last sent: ${timeFmt.format(Date(ts))}"
+            }
+            false -> {
+                viewDdogDot.setBackgroundResource(R.drawable.dot_red)
+                tvDdogStatus.text = msg
+                tvDdogStatus.setTextColor(getColor(android.R.color.holo_red_dark))
+                tvDdogLastSent.text = "Last attempt: ${timeFmt.format(Date(ts))}"
+            }
+        }
     }
 
     // ── Signal helpers ────────────────────────────────────────────────────────

@@ -25,10 +25,17 @@ class MonitoringService : Service() {
     private var lastRxBytes = TrafficStats.getMobileRxBytes()
     private var lastTxBytes = TrafficStats.getMobileTxBytes()
 
+    // Cell info cache — querying the modem on every cycle is expensive.
+    // allCellInfo is refreshed every 3 cycles; intermediate cycles reuse the cached value.
+    private var cachedCellInfo: List<CellInfo> = emptyList()
+    private var cellInfoCycleCount = 0
+
+    // Last notification text — avoids rebuilding and posting an identical notification.
+    private var lastNotificationText = ""
+
     // Single poll job — cancelled and replaced on each onStartCommand so a
     // settings-triggered service restart doesn't accumulate parallel loops.
     private var pollJob: Job? = null
-    private var endpointJob: Job? = null
 
     // ── Network callback — fires events immediately ────────────────────────────
 
@@ -128,26 +135,9 @@ class MonitoringService : Service() {
             }
         }
 
-        endpointJob?.cancel()
-        endpointJob = scope.launch {
-            while (isActive) {
-                try {
-                    val withTransitions = EndpointChecker.checkWithTransitions()
-                    val results = withTransitions.map { it.first }
-                    lastEndpointResults = results
-                    lastEndpointCheckMs = System.currentTimeMillis()
-                    client.sendEndpointResults(results, withTransitions)
-                    DiagLogger.log(
-                        this@MonitoringService, DiagLogger.Level.INFO,
-                        "Endpoint check: ${results.count { it.isUp }}/${results.size} up"
-                    )
-                } catch (e: Exception) {
-                    DiagLogger.log(this@MonitoringService, DiagLogger.Level.WARN,
-                        "Endpoint check failed: ${e.message?.take(100)}")
-                }
-                delay(ENDPOINT_CHECK_INTERVAL_MS)
-            }
-        }
+        // Endpoint checks run via WorkManager (JobScheduler-backed) — battery-efficient,
+        // Doze-aware, deferred when offline. Scheduled once; KEEP policy avoids duplicates.
+        EndpointCheckWorker.schedule(this)
 
         return START_STICKY
     }
@@ -157,7 +147,6 @@ class MonitoringService : Service() {
         DiagLogger.log(this, DiagLogger.Level.INFO, "MonitoringService stopped")
         connectivityManager.unregisterNetworkCallback(networkCallback)
         sensorCollector.stop()
-        endpointJob?.cancel()
         scope.cancel()
     }
 
@@ -174,6 +163,8 @@ class MonitoringService : Service() {
     }
 
     private fun doPoll() {
+        refreshCellInfoIfNeeded()
+
         val batteryIntent  = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val batteryManager = getSystemService(BatteryManager::class.java)
 
@@ -266,10 +257,18 @@ class MonitoringService : Service() {
     } catch (_: Exception) { -1.0 }
 
     @Suppress("MissingPermission")
+    private fun refreshCellInfoIfNeeded() {
+        // Refresh every 3rd cycle to reduce modem wake events.
+        if (cellInfoCycleCount % 3 == 0) {
+            val tm = getSystemService(TelephonyManager::class.java)
+            cachedCellInfo = try { tm.allCellInfo ?: emptyList() } catch (_: Exception) { emptyList() }
+        }
+        cellInfoCycleCount++
+    }
+
+    @Suppress("MissingPermission")
     private fun signalStrengthDbm(): Double {
-        val tm    = getSystemService(TelephonyManager::class.java)
-        val cells = try { tm.allCellInfo } catch (_: Exception) { emptyList() }
-        for (cell in cells) {
+        for (cell in cachedCellInfo) {
             val dbm = when (cell) {
                 is CellInfoNr    -> (cell.cellSignalStrength as CellSignalStrengthNr).dbm
                 is CellInfoLte   -> cell.cellSignalStrength.dbm
@@ -311,9 +310,12 @@ class MonitoringService : Service() {
             .build()
     }
 
-    private fun updateNotification(text: String) =
+    private fun updateNotification(text: String) {
+        if (text == lastNotificationText) return
+        lastNotificationText = text
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
             .notify(NOTIFICATION_ID, buildNotification(text))
+    }
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -324,11 +326,10 @@ class MonitoringService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID             = "monitor_channel"
-        private const val NOTIFICATION_ID        = 1
-        private const val ENDPOINT_CHECK_INTERVAL_MS = 5 * 60 * 1_000L
+        private const val CHANNEL_ID      = "monitor_channel"
+        private const val NOTIFICATION_ID = 1
 
-        /** Shared results read by MainActivity UI polling loop. */
+        /** Shared results written by EndpointCheckWorker, read by MainActivity. */
         @Volatile var lastEndpointResults: List<EndpointResult> = emptyList()
         @Volatile var lastEndpointCheckMs: Long = 0L
     }

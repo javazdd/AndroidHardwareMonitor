@@ -1,5 +1,6 @@
 package com.s23ultra.monitor
 
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -39,7 +40,8 @@ object EndpointChecker {
         "mattermost"   to "mattermost.springshot.com",
     )
 
-    // Dedicated client — shorter timeout than the Datadog client, redirects allowed
+    // Dedicated client — shorter timeout than the Datadog client, redirects allowed.
+    // connectionPool(2, 20s): close idle connections quickly so the radio can sleep.
     private val http = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
@@ -47,6 +49,7 @@ object EndpointChecker {
         .followRedirects(true)
         .followSslRedirects(true)
         .retryOnConnectionFailure(false)
+        .connectionPool(ConnectionPool(2, 20, TimeUnit.SECONDS))
         .build()
 
     /**

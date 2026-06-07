@@ -1,6 +1,7 @@
 package com.s23ultra.monitor
 
 import android.content.Context
+import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -146,6 +147,9 @@ class DatadogClient(private val context: Context) {
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false)
+            // Keep at most 1 idle connection for 20 s. The default (5 connections / 5 min)
+            // holds the radio active far longer than needed between 60-second metric sends.
+            .connectionPool(ConnectionPool(1, 20, TimeUnit.SECONDS))
             .build()
 
         /** Send status — written by background thread, read by UI thread. */

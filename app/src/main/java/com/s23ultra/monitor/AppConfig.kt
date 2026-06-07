@@ -48,7 +48,7 @@ object AppConfig {
     }
 
     fun pollIntervalSeconds(ctx: Context): Long =
-        prefs(ctx).getLong("poll_interval_sec", 30L)
+        prefs(ctx).getLong("poll_interval_sec", 60L)
             .coerceIn(INTERVAL_OPTIONS.first(), INTERVAL_OPTIONS.last())
 
     fun save(ctx: Context, apiKey: String, siteHost: String, deviceId: String, intervalSec: Long) {

@@ -182,7 +182,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             while (true) {
                 try { refreshUI() } catch (_: Exception) {}
-                delay(5_000L)
+                delay(15_000L)
             }
         }
     }

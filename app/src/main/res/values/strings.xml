@@ -3,4 +3,12 @@
     <string name="app_name">Hardware Monitor</string>
     <string name="notification_channel_name">Device Monitoring</string>
     <string name="notification_channel_desc">Live temperature, signal, and connectivity monitoring</string>
+
+    <!-- Managed configuration descriptions (must be string refs in app_restrictions.xml) -->
+    <string name="restriction_desc_api_key">Your Datadog API key. Find it under Organization Settings then API Keys.</string>
+    <string name="restriction_desc_site">Select the Datadog region for your organisation.</string>
+    <string name="restriction_desc_device_id">Unique identifier for this unit. Sent as device:id on every metric and event. Example: ct47_warehouse_01</string>
+    <string name="restriction_desc_poll_interval">How often metrics are collected and sent to Datadog.</string>
+    <string name="restriction_desc_debug_logging">Send verbose diagnostic logs to Datadog. Disable in production.</string>
+    <string name="restriction_desc_custom_tags">Comma-separated key:value tag pairs, max 5. Example: env:prod,location:warehouse_a,fleet:ct47</string>
 </resources>

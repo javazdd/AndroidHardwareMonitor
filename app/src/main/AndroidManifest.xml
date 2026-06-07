@@ -31,6 +31,11 @@
         android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar"
         android:supportsRtl="true">
 
+        <!-- Declares the managed configuration schema to SOTI / EMM -->
+        <meta-data
+            android:name="android.content.APP_RESTRICTIONS"
+            android:resource="@xml/app_restrictions" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -56,6 +61,15 @@
             android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receives live config pushes from the MDM without requiring a reboot -->
+        <receiver
+            android:name=".ManagedConfigReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_RESTRICTIONS_CHANGED" />
             </intent-filter>
         </receiver>
 

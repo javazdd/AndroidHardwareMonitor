@@ -7,6 +7,8 @@ class MonitorApp : Application() {
     override fun onCreate() {
         super.onCreate()
         StartupLog.step(this, "MonitorApp.onCreate start")
+        AppConfig.applyManagedConfig(this)
+        StartupLog.step(this, "MDM config applied")
         installCrashHandler()
         StartupLog.step(this, "CrashHandler installed")
         sendPendingCrashReport()

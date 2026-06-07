@@ -120,6 +120,67 @@ object AppConfig {
     fun allTags(ctx: Context): List<String> =
         listOf(deviceTag(ctx)) + hardwareTags() + customTags(ctx)
 
+    // ── MDM / Managed Configuration ────────────────────────────────────────────
+
+    fun isMdmManaged(ctx: Context): Boolean {
+        val rm = ctx.getSystemService(Context.RESTRICTIONS_SERVICE)
+            as android.content.RestrictionsManager
+        val bundle = rm.applicationRestrictions
+        return bundle != null && !bundle.isEmpty
+    }
+
+    fun applyManagedConfig(ctx: Context) {
+        val rm = ctx.getSystemService(Context.RESTRICTIONS_SERVICE)
+            as android.content.RestrictionsManager
+        val bundle = rm.applicationRestrictions
+        if (bundle == null || bundle.isEmpty) return
+
+        val edit = prefs(ctx).edit()
+
+        val apiKeyVal = bundle.getString("api_key")
+        if (!apiKeyVal.isNullOrBlank()) edit.putString(KEY_API_KEY, apiKeyVal.trim())
+
+        val siteVal = bundle.getString("site")
+        if (!siteVal.isNullOrBlank()) edit.putString(KEY_SITE, siteVal.trim())
+
+        val deviceIdVal = bundle.getString("device_id")
+        if (!deviceIdVal.isNullOrBlank()) edit.putString(KEY_DEVICE_ID, deviceIdVal.trim())
+
+        val intervalVal = bundle.getString("poll_interval_sec")?.toLongOrNull()
+        if (intervalVal != null) {
+            edit.putLong("poll_interval_sec",
+                intervalVal.coerceIn(INTERVAL_OPTIONS.first(), INTERVAL_OPTIONS.last()))
+        }
+
+        if (bundle.containsKey("debug_logging")) {
+            edit.putBoolean("debug_logging", bundle.getBoolean("debug_logging", false))
+        }
+
+        val customTagsVal = bundle.getString("custom_tags")
+        if (customTagsVal != null) {
+            val pairs = parseMdmCustomTags(customTagsVal)
+            pairs.take(MAX_CUSTOM_TAGS).forEachIndexed { i, pair ->
+                edit.putString("custom_tag_key_$i", pair.first)
+                edit.putString("custom_tag_value_$i", pair.second)
+            }
+            for (i in pairs.size until MAX_CUSTOM_TAGS) {
+                edit.putString("custom_tag_key_$i", "")
+                edit.putString("custom_tag_value_$i", "")
+            }
+        }
+
+        edit.apply()
+    }
+
+    private fun parseMdmCustomTags(raw: String): List<Pair<String, String>> =
+        raw.split(",").mapNotNull { entry ->
+            val idx = entry.indexOf(':')
+            if (idx <= 0) return@mapNotNull null
+            val k = sanitizeTagKey(entry.substring(0, idx))
+            val v = sanitizeTagValue(entry.substring(idx + 1))
+            if (k.isNotEmpty() && v.isNotEmpty()) Pair(k, v) else null
+        }
+
     // ── Internal ───────────────────────────────────────────────────────────────
 
     private fun prefs(ctx: Context) =

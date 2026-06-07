@@ -11,6 +11,19 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <!-- MDM managed banner — hidden unless SOTI pushes a config -->
+        <TextView
+            android:id="@+id/tvMdmBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:background="#1A3A6B"
+            android:padding="14dp"
+            android:layout_marginBottom="20dp"
+            android:text="⚙ Managed by MDM — settings are controlled by your SOTI policy and cannot be edited on-device."
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
         <!-- ── BACKEND SITE ─────────────────────────────────────────────────── -->
         <TextView
             android:layout_width="match_parent"

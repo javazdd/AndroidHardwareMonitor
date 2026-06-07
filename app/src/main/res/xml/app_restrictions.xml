@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <restriction
+        android:key="api_key"
+        android:title="Datadog API Key"
+        android:restrictionType="string"
+        android:description="@string/restriction_desc_api_key"
+        android:defaultValue="" />
+
+    <restriction
+        android:key="site"
+        android:title="Datadog Site"
+        android:restrictionType="choice"
+        android:description="@string/restriction_desc_site"
+        android:defaultValue="datadoghq.com"
+        android:entries="@array/site_labels"
+        android:entryValues="@array/site_values" />
+
+    <restriction
+        android:key="device_id"
+        android:title="Device ID"
+        android:restrictionType="string"
+        android:description="@string/restriction_desc_device_id"
+        android:defaultValue="" />
+
+    <restriction
+        android:key="poll_interval_sec"
+        android:title="Polling Interval"
+        android:restrictionType="choice"
+        android:description="@string/restriction_desc_poll_interval"
+        android:defaultValue="30"
+        android:entries="@array/interval_labels"
+        android:entryValues="@array/interval_values" />
+
+    <restriction
+        android:key="debug_logging"
+        android:title="Debug Logging"
+        android:restrictionType="bool"
+        android:description="@string/restriction_desc_debug_logging"
+        android:defaultValue="false" />
+
+    <restriction
+        android:key="custom_tags"
+        android:title="Custom Tags"
+        android:restrictionType="string"
+        android:description="@string/restriction_desc_custom_tags"
+        android:defaultValue="" />
+
+</restrictions>

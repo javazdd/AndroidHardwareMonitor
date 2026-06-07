@@ -62,6 +62,9 @@ class SettingsActivity : AppCompatActivity() {
             loadSavedValues()
             StartupLog.step(this, "SettingsActivity loadSavedValues OK")
 
+            applyMdmState()
+            StartupLog.step(this, "SettingsActivity applyMdmState OK")
+
             btnSave.setOnClickListener { onSave() }
             btnDiscard.setOnClickListener { finish() }
             StartupLog.step(this, "SettingsActivity.onCreate complete")
@@ -70,6 +73,26 @@ class SettingsActivity : AppCompatActivity() {
             StartupLog.step(this, "EXCEPTION in SettingsActivity.onCreate: $msg")
             Toast.makeText(this, "Settings error: $msg", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // ── MDM lock state ────────────────────────────────────────────────────────
+
+    private fun applyMdmState() {
+        if (!AppConfig.isMdmManaged(this)) return
+
+        // Show a banner at the top of the screen
+        findViewById<TextView>(R.id.tvMdmBanner).also {
+            it.visibility = android.view.View.VISIBLE
+        }
+
+        // Disable all editable fields — MDM is the source of truth
+        val fieldsToLock = listOf(
+            spinnerSite, spinnerInterval, etApiKey, etDeviceId, switchDebugLogging
+        )
+        fieldsToLock.forEach { v -> v.isEnabled = false }
+        tagRows.forEach { (k, v) -> k.isEnabled = false; v.isEnabled = false }
+        btnSave.isEnabled = false
+        btnSave.alpha = 0.4f
     }
 
     // ── Site spinner ──────────────────────────────────────────────────────────

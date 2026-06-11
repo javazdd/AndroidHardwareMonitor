@@ -33,12 +33,12 @@ class SensorCollector(
     @Volatile var stepCount: Float   = Float.NaN; private set
     @Volatile var humidityPct: Float = Float.NaN; private set
 
-    // Fall detection state machine
-    private var inFreeFall = false
-    private var freeFallStartMs = 0L
-    // Suppress duplicate events within 2 s
-    private var lastImpactMs = 0L
-    private var lastFallMs   = 0L
+    // Fall detection state machine — all timestamps are hardware nanoseconds from
+    // event.timestamp so batched samples retain their true inter-sample spacing.
+    private var inFreeFall      = false
+    private var freeFallStartNs = 0L
+    private var lastImpactNs    = 0L
+    private var lastFallNs      = 0L
 
     fun start() {
         // Accelerometer: SENSOR_DELAY_UI (~17 Hz, 60 ms between samples) is the
@@ -77,27 +77,32 @@ class SensorCollector(
         val x = event.values[0]; val y = event.values[1]; val z = event.values[2]
         // Convert m/s² magnitude to g-force (1 g = 9.81 m/s²)
         val gForce = sqrt(x * x + y * y + z * z) / 9.81f
-        val now = System.currentTimeMillis()
+
+        // Use the hardware-embedded sample timestamp (nanoseconds since boot) rather
+        // than System.currentTimeMillis(). With batching enabled, the OS delivers
+        // multiple samples in a tight loop — all would share the same wall-clock time,
+        // collapsing the measured free-fall duration to ~0 ms and preventing detection.
+        // event.timestamp preserves the true inter-sample spacing regardless of
+        // delivery latency, at zero additional power cost.
+        val nowNs = event.timestamp
 
         when {
             gForce < FREE_FALL_G_THRESHOLD -> {
                 if (!inFreeFall) {
-                    inFreeFall = true
-                    freeFallStartMs = now
+                    inFreeFall      = true
+                    freeFallStartNs = nowNs
                 }
             }
             gForce > IMPACT_G_THRESHOLD -> {
-                val freeFallDuration = now - freeFallStartMs
-                if (inFreeFall && freeFallDuration >= FREE_FALL_MIN_MS) {
-                    // Sustained free-fall → impact = drop/fall event
-                    if (now - lastFallMs > EVENT_COOLDOWN_MS) {
-                        lastFallMs = now
+                val freeFallDurationMs = (nowNs - freeFallStartNs) / 1_000_000L
+                if (inFreeFall && freeFallDurationMs >= FREE_FALL_MIN_MS) {
+                    if (nowNs - lastFallNs > EVENT_COOLDOWN_NS) {
+                        lastFallNs = nowNs
                         onFall()
                     }
                 } else if (gForce > HARD_IMPACT_G_THRESHOLD) {
-                    // Sudden spike without free-fall = hard knock/drop
-                    if (now - lastImpactMs > EVENT_COOLDOWN_MS) {
-                        lastImpactMs = now
+                    if (nowNs - lastImpactNs > EVENT_COOLDOWN_NS) {
+                        lastImpactNs = nowNs
                         onImpact()
                     }
                 }
@@ -114,10 +119,10 @@ class SensorCollector(
     }
 
     companion object {
-        private const val FREE_FALL_G_THRESHOLD   = 0.5f   // g — below this = near-weightless
-        private const val FREE_FALL_MIN_MS         = 80L    // ms — minimum freefall window
-        private const val IMPACT_G_THRESHOLD       = 3.0f   // g — spike after freefall
-        private const val HARD_IMPACT_G_THRESHOLD  = 4.5f   // g — direct knock without freefall
-        private const val EVENT_COOLDOWN_MS        = 2_000L // prevent duplicate events
+        private const val FREE_FALL_G_THRESHOLD  = 0.5f        // g — below this = near-weightless
+        private const val FREE_FALL_MIN_MS        = 80L         // ms — minimum freefall window
+        private const val IMPACT_G_THRESHOLD      = 3.0f        // g — spike after freefall
+        private const val HARD_IMPACT_G_THRESHOLD = 4.5f        // g — direct knock without freefall
+        private const val EVENT_COOLDOWN_NS       = 2_000_000_000L // 2 s in nanoseconds
     }
 }
